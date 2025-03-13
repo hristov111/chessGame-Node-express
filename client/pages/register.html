@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="stylesheet" href="../styles/index.css">
+</head>
+<body>
+    <div class="wrapper">
+        <form class="register" action="/chessGame/client/pages/register" method="POST">
+            <h1>Register</h1>
+            <div class="input-box username-box">
+                <input name="username" type="text" placeholder="Username" required>
+                <i class='bx bxs-user' ></i>
+                <p class="usercheck"></p>
+            </div>
+            <div class="input-box password-box">
+                <input name="password" type="password" placeholder="Password" required disabled>
+                <i class='bx bxs-lock-alt' ></i>
+                <p class="passCheck"></p>
+                <label for=""><input type="checkbox" class="passCheck-box">Show password</label>
+            </div>
+            <div class="input-box repeatpass-box">
+                <input name="repeat_password" type="password" placeholder="Repeat Password" required disabled>
+                <i class='bx bxs-lock-alt' ></i>
+                <p class="repeatPassCheck"></p>
+                <label for=""><input type="checkbox" class="repeatpassCheck-box">Show password</label>
+            </div>
+            <button type="submit" class="btn">Register</button>
+            <div class="login-link form-link">
+                <p>Already have an account?<a href="login.html" class="login-btn">Login</a></p>
+            </div>
+        </form>
+    </div>
+    <script src="../scripts/register.js"></script>
+
+    
+</body>
+</html>
