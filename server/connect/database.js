@@ -14,16 +14,21 @@ async function getUsers() {
     return rows
 }
 
-async function getUser(id){
+async function getUserById(id){
     const [rows] = await pool.query(`SELECT * FROM users WHERE id = ?`, [id]);
     return rows[0];
 }
-async function createUser(title, content){
+
+const getUserByUsername = async (username) => {
+    const [rows]= await pool.query(`SELECT * FROM users WHERE username = ?`, [username]);
+    return rows;
+}
+async function createUser(username, password_hash){
     const [res]= await pool.query(`
-        INSERT INTO users (username,password_hash) VALUES (? ?)`, [title, content]);
+        INSERT INTO users (username,password_hash) VALUES (? ,?)`, [username, password_hash]);
     const id =  res.insertId;
-    return getNote(id);
+    return id;
 }
 
 
-export {getUsers,getUser,createUser}
+export {getUsers,getUserById,getUserByUsername,createUser}
