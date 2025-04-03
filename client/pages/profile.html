@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../styles/profile.css">
+    <title>Profile</title>
+</head>
+<body>
+    <div class="settings-container">
+        <div class="sidebar">
+          <h2>Settings</h2>
+          <ul>
+            <li class="active">Public Profile</li>
+            <li>Account settings</li>
+            <li>Notifications</li>
+            <li>PRO Account</li>
+          </ul>
+        </div>
+    
+        <div class="profile-section">
+          <div class="image-container">
+            <img src="../images/line.png" alt="" class="player-image" />
+            <input type="file" id="avatarInput" accept="image/*" hidden>
+            <div class="rank-wrapper">
+                <h1 id="rank">Rank 20</h1>
+            </div>
+            <div class="buttons">
+              <button class="btn primary">Change picture</button>
+              <button class="btn secondary">Delete picture</button>
+            </div>
+          </div>
+    
+          <form class="profile-form">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" value="player1" class="input usernameInput" />
+                <p class="username-error"></p>
+              </div>
+            <div class="form-group">
+              <label>First Name</label>
+              <input type="text" value="Ildiko" class="input firstnameInput" />
+              <p class="firstname-error"></p>
+
+            </div>
+            <div class="form-group">
+              <label>Last Name</label>
+              <input type="text" value="Gaspar" class="input lastnameInput" />
+              <p class="lastname-error"></p>
+
+            </div>
+            <div class="form-group full-width">
+              <label>Email</label>
+              <input type="text" value="aaalo@masiflaf.com" class="input emailInput"/>
+              <p class="email-error"></p>
+            </div>
+            <div class="form-group full-width">
+              <label>Bio</label>
+              <input type="text" value="UX/Designer" class="input bioInput"/>
+              <p class="bio-error"></p>
+
+            </div>
+            <div class="form-group full-width">
+              <label>Change Password</label>
+              <div class="password-change-wrapper">
+                <label>Old</label>
+                <input type="password" class="input passwordInput"/>
+                <p class="password-error"></p>
+                <label>New</label>
+                <input type="password" class="input repeatpasswordInput"/>
+                <p class="repeat-password-error"></p>
+              </div>
+            </div>
+            <div class="update-button-wrapper">
+                <button type="submit" class="btn update">Update Profile</button>
+            </div>
+          </form>
+        </div>
+      </div>
+   
+    <script type="module" src="../scripts/profile.js"></script>
+</body>
+</html>

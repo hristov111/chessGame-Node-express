@@ -15,4 +15,16 @@ router.get('/login', (req, res) => {
 
 })
 
+router.get('/home', (req,res) => {
+    console.log(req.session);
+    if(!req.session.user)return res.status(401).json({msg: "BAD CREDENTIALS"});
+    res.sendFile(path.join(projectRoot, "../client/pages/main-page.html"));
+})
+
+router.get('/home/profile', (req, res) => {
+    if(!req.session.user)return res.status(401).json({msg: "BAD CREDENTIALS"});
+    res.sendFile(path.join(projectRoot, '../client/pages/profile.html'));
+})
+
+
 module.exports = router;
