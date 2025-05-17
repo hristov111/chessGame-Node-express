@@ -18,6 +18,7 @@ const extractAndSet = async (html, path, callback = null, scripts = []) => {
     try {
         const res = await fetch(path);
         const data = await res.text();
+        console.log(data);
         html.innerHTML = data;
 
         for (const script of scripts) {
