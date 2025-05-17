@@ -1,0 +1,57 @@
+import { navigate } from "./router";
+
+const navPlay = document.querySelector('#nav-play');
+const navPuzzle = document.querySelector('#nav-puzzles');
+const navLearn = document.querySelector('#nav-learn');
+const navProfile = document.querySelector('.profile');
+const navHome = document.querySelector('.home');
+const navLogOut = document.querySelector('#logout-btn');
+const navLogin = document.querySelector('#nav-login');
+const navSignUp = document.querySelector('.signup-btn');
+if (navPlay) {
+    navPlay.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await navigate('game-panel');
+    })
+}
+if(navPuzzle){
+    navPuzzle.addEventListener('click', async (e) => {
+        e.preventDefault();
+    })
+}
+if(navLearn){
+    navLearn.addEventListener('click', async (e) => {
+        e.preventDefault();
+    })
+}
+
+if(navProfile){
+    navProfile.addEventListener('click', async (e) => {
+        e.preventDefault();
+    })
+}
+
+if(navHome){
+    navHome.addEventListener('click', async (e) => {
+        e.preventDefault();
+    })
+}
+if(navLogOut){
+    navLogOut.addEventListener('click', async (e) => {
+        e.preventDefault();
+    })
+}
+
+if(navLogin){
+    navLogin.addEventListener('click', async (e) => {
+        await navigate('login');
+    })
+}
+if(navSignUp){
+    navSignUp.addEventListener('click', async (e) => {
+        await navigate('createAccount');
+    })
+}
+
+
+

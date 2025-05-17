@@ -1,11 +1,31 @@
 const { getUsers,getUserById,getUserByUsername,createUser
-    ,updatePlayerActiveState,
-    updateAllActiveState,getAllActiveUsers,getAllUnactiveUsers,getUsersByChar,updatePassword
-} = require('../connect/database');
+    ,updatePlayerActiveState,getUserByEmail,createGuestUser,
+    updateAllActiveState,getAllActiveUsers,getAllUnactiveUsers,getUsersByChar,updatePassword,updateUser,getAdminStatus
+} = require('../connect/usersDB.js');
 const bcrypt = require('bcrypt');
+
+
 
 const hashPassword = async (password) => await bcrypt.hash(password, 10);
 
+const usernameExistsFunc = async(req,res) => {
+
+    try {
+        const {guest_username} = req.query;
+        if (!guest_username)return res.status(400).json({message:"Username is required!"});
+        const user = await getUserByUsername(guest_username);
+        if(!user){
+            // username doest exist
+            return res.status(200).json({exists:false, message:"Username is available!"});
+        }else {
+            // username exits
+            return res.status(200).json({exists:true,message:"Username already taken!"});
+        }
+    }catch (error){
+        console.error("Error in usernameExistsFunc:", error);
+        return res.status(500).json({message:"Internal server error."});
+    }
+}
 
 const verifyPassword = async(enteredPassword, storedHash) => await bcrypt.compare(enteredPassword, storedHash);
 
@@ -23,27 +43,56 @@ const getAllUsersFunc = async (req,res) => {
     res.status(200).json(names);
 }
 
+
 const getSession = async (req,res) => {
-    if(!req.session.user){
-        console.log("unauthorized");
-        return res.status(401).json({msg: "Unauthorized"});
-    }
-    res.json({username: req.session.user});
+    console.log('here');
+    res.status(200).json({username: req.session.user});
 }
 
-const setPassword = async (req,res) => {
+const updatePasswordFunc = async (req,res) => {
     try{
-        const {username, password,newPassword} = req.body;
-        const user = await getUserByUsername(username);
-        if(user == undefined)return res.status(404);
-        if(await verifyPassword(password,user.password_hash)){
-            const newpass_hash = hashPassword(newPassword);
-            const result2 = await updatePassword(username,newpass_hash);
+        const {usr,newPassword,oldPassword} = req.body;
+        const user = await getUserByUsername(usr);
+        console.log(user);
+        if(!user)return res.status(404).json({msg: "User not found"});
+
+
+
+        if(await verifyPassword(oldPassword,user.password_hash)){
+            const newpass_hash = await hashPassword(newPassword);
+            const result2 = await updatePassword(usr,newpass_hash);
+
+            if(result2.affectedRows === 0) return res.status(400).json({msg: "Password update failed"});
             // now here i need to update password
-            return res.status(200).json({msg:"success"});
-        }else return res.status(401);
+            return res.status(200).json({msg:"Password updated successfully"});
+        }else return res.status(401).json({msg: "Invalid current password"});
     }catch(error){
-        res.status(500);
+        res.status(500).json({msg: "Server error " + error});
+    }
+}
+
+const updateProfileFunc = async (req,res) => {
+    try{
+        const {usr,username,firstname,lastname,email,biography} = req.body;
+        const user = await getUserByUsername(usr);
+        if(!user) return res.status(404).json({msg: "User not found"});
+
+        const updateFields = {};
+        if(firstname) updateFields.firstname = firstname;
+        if(lastname) updateFields.lastname = lastname;
+        if(username) updateFields.username = username;
+        if(email) updateFields.email = email;
+        if(biography) updateFields.biography = biography;
+
+        if(Object.keys(updateFields).length === 0) return res.status(400).json({msg: "No fields to update"});
+
+        const result = await updateUser(usr,updateFields);
+
+        if(result.affectedRows === 0) return res.status(400).json({msg: "Update failed"});
+
+        return res.status(200).json({msg: "Profile updated successfully"});
+    }catch(error){
+        return res.status(500).json({msg: "Server error"})
     }
 }
 
@@ -66,7 +115,12 @@ const getUserByUsernameFunc = async (req,res) => {
         const user = await getUserByUsername(username);
         if(user == undefined) return res.status(404).json({msg:`There isn't a person with this username: ${username}`});
         if( await verifyPassword(password,user.password_hash)){
-            req.session.user = username;
+            req.session.user ={
+                id:user.id,
+                username:username,
+                isAdmin:user.isAdmin,
+                isGuest:false,
+            };
             return res.status(200).json({user});
         }else {
             return res.status(401).json({msg:'Wrong password!'});   
@@ -79,13 +133,22 @@ const getUserByUsernameFunc = async (req,res) => {
 const createUserFunc = async (req,res) => {
     try{
        const {username,password} = req.body;
+       console.log(username,password);
        const user = await getUserByUsername(username);
+       console.log(user);
        // check if user exists
        if(user == undefined){
         // if we are here this means we didnt find any user with this username so everything is okay
         // firstly we need to hash the password given
         const password_hash = await hashPassword(password);
         const id = await createUser(username,password_hash);
+
+        req.session.user ={
+            id:user.id,
+            username:username,
+            isAdmin:false,
+            isGuest:false,
+        };
         return res.status(201).json({username,password});
        }
        res.status(409).json({msg:`The username is already in use: ${username}`});
@@ -93,6 +156,31 @@ const createUserFunc = async (req,res) => {
         res.status(500).json({msg:error});
     }       
 
+}
+
+const createGuestUserFunc = async (req,res) => {
+    try {
+        const {guest_user} = req.body;
+        console.log(guest_user);
+
+        if(!guest_user)return res.status(400).json({msg:"Guest name is required"});
+        // the guest_name is already checked so we directly create it 
+        const id = await createGuestUser(guest_user);
+          req.session.user ={
+            id:id,
+            username:guest_user,
+            isAdmin:false,
+            isGuest:true,
+        };
+        return res.status(201).json({
+            ms: "Guest user created successfully",
+            userId:id,
+            username:guest_user
+        });
+    }catch(err){
+        console.error("Error creating guest user:" ,err);
+        res.status(500).json({msg:"Server error creating guest user"});
+    }
 }
 
 const updatePlayerActiveStateFunc = async (req,res) => {
@@ -108,16 +196,21 @@ const updateAllActiveStateFunc = async (req,res) => {
 }
 
 const getallActiveUsersFunc = async (req,res) => {
-    const users= await getAllActiveUsers();
-    const names = users.map(el => {
-        return {
-            username:el.username,
-            games:el.total_games,
-            wins:el.total_wins,
-            losses:el.total_losses
-        }   
-    });
-    res.status(200).json(names);
+    try {
+        const users= await getAllActiveUsers();
+        const names = users.map(el => {
+            return {
+                username:el.username,
+                games:el.total_games,
+                wins:el.total_wins,
+                losses:el.total_losses
+            }   
+        });
+        res.status(200).json(names);
+    }catch(error){
+        console.error("Error fetching active users:", error);
+        return res.status(500).json({message: "Interanl server error"});
+    }
 }
 const getAllUnactiveUsersFunc = async(req,res) => {
     const result = await getAllUnactiveUsers();
@@ -147,15 +240,14 @@ const getEverythingForUser = async(req,res) => {
     else {
         return res.status(201).json({others});
     }
-
 }
 
 
 module.exports = {
     getAllUsersFunc,getUserByIdFunc,getUserByUsernameFunc,createUserFunc,
-    updatePlayerActiveStateFunc,
-    updateAllActiveStateFunc,getallActiveUsersFunc,getAllUnactiveUsersFunc,getUserByCharFunc,setPassword
-    ,getSession,getEverythingForUser
+    updatePlayerActiveStateFunc,usernameExistsFunc,createGuestUserFunc,
+    updateAllActiveStateFunc,getallActiveUsersFunc,getAllUnactiveUsersFunc,getUserByCharFunc,updatePasswordFunc
+    ,getSession,getEverythingForUser,updateProfileFunc
 }
 
 

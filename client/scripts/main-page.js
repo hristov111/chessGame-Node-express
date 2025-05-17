@@ -1,98 +1,128 @@
-document.addEventListener('DOMContentLoaded', ()=> {
-    const botBtn = document.querySelector('.bot-btn');
-    const playerBtn = document.querySelector('.user-btn');
-    const playerSearchInput = document.querySelector('.play-user input');
+import { extractAndSet, fetchUserINfo, setProperButtons, checkSession, generateGuestName, createGuestUser } from "./utils/utils.js";
+import { navigate } from "./router.js";
+console.log("main-page loaded");
 
-    const parent = document.querySelector('.playing-window');
-    const users = document.querySelector('.users');
+// import the modal overlay
 
-    const fetchAllPlayers = async () => {
+
+// take buttons and check if the user  is signed in or not in order to use them
+// LOGGED IN section
+// true if it is user else guest
+const modalOverlay = document.querySelector('.modal-overlay');
+await extractAndSet(modalOverlay, '/pages/partials/modal-choose.html');
+
+const openModalOverlay = (trigger) => {
+    if (modalOverlay) {
+        modalOverlay.setAttribute('data-trigger', trigger);
+        modalOverlay.style.display = 'flex';
+    } else {
+        console.warn("overklay not found");
+    }
+}
+let user = undefined;
+const res = await checkSession();
+// if undefined ask to sign in .....
+if (!res.session) openModalOverlay("sessionCheck");
+else if (res.session && res.isGuest) user = "guest";
+else user = 'user';
+await setProperButtons(user);
+
+// THIS IS SET in index.html
+// const navbar = document.querySelector('.navbar');
+// await extractAndSet(navbar, '/main-navbar');
+// -----------------------------------------------
+// play button 1
+const play_onlineButt = document.querySelector(".primary");
+// nav bar play button
+const playNavbar = document.querySelector('#nav-play');
+// ---
+const modalContent = document.querySelector('.modal-content');
+// set the navbar horizontally
+
+// modal-close button 
+
+// NAV sign in 
+const navSignIn = document.querySelector('#nav-login');
+
+
+
+
+const modalCloseButt = document.querySelector('.modal-close');
+
+if (modalCloseButt && modalOverlay) {
+    modalCloseButt.addEventListener('click', () => {
+        modalOverlay.style.display = 'none';
+
+    })
+}
+
+if (modalOverlay) {
+    modalOverlay.addEventListener('click', (e) => {
+        if (!modalContent.contains(e.target)) {
+            modalOverlay.style.display = 'none';
+        }
+    });
+}
+
+
+
+
+// sign in modal 
+let modalSignInButt = document.querySelector('.sign-in');
+// sign up modal
+let modalSignUpButt = document.querySelector('.sign-up');
+// play as guest 
+let guestPlayButt = document.querySelector('.play-guest');
+
+if (playNavbar) {
+    playNavbar.addEventListener('click', (e) => {
+        play_onlineButt.click()
+
+    })
+}
+if (play_onlineButt) {
+    play_onlineButt.addEventListener('click', async () => {
         try {
-            const response = await fetch('/api/users/players');
-            if(!response.ok){
-                console.log("Request failed");
-            }else {
-                let users = await response.json();
-                users.sort((first,next) => first.username.localeCompare(next.username));
-                return users;
-                
+
+            if (user) {
+                window.location.href = "/game-panel";
+            } else {
+                openModalOverlay('playButton');
             }
-        }catch(error){
-            console.log("Error fetching users: ", error);
+        } catch (err) {
+            console.error("Session checkf ailed:", err);
         }
-    }
+        console.log(localStorage);
 
-    const fetchUserByName = async(char) => {
-        const response = await fetch(`/api/users/active?char=${char}`);
-        if(!response.ok)console.log("Bad request");
-        else {
-            let users = await response.json();
-            users.sort((first,next) => first.username.localeCompare(next.username));
-            return users;
+    });
+}
+if (user == undefined) {
+    modalSignInButt.addEventListener('click', () => window.location.href = '/login');
+    modalSignUpButt.addEventListener('click', () => window.location.href = '/register');
+    guestPlayButt.addEventListener('click', async () => {
+        // set a proper guest name 
+        /**   success:true,
+            usedId:data.userId,
+            username:data.username */
+        const modalTrigger = modalOverlay.getAttribute('data-trigger');
+        if (!localStorage.getItem("guestUser")) {
+            let guestName = await generateGuestName();
+            const obj = await createGuestUser(guestName);
+            if (obj.success) {
+                const user = {
+                    id: obj.usedId,
+                    guest_name: obj.username
+                }
+                localStorage.setItem("guestUser", JSON.stringify(user));
+            } else {
+                localStorage.setItem("guestUser", false);
+            }
+
         }
-    }
-
-    const displayUsers = async (displayAll = true,findBychar = '') => {
-        let active = await fetchAllPlayers();
-        if(!displayAll){
-            active = await fetchUserByName(findBychar);
+        if (modalTrigger == 'playButton') {
+            window.location.href = "/game-panel"
         }
-        removeAllUsers();
-        const usersTable = document.createElement('div');
-        usersTable.className = 'users-table';
-        usersTable.innerHTML = `
-        <div>Username</div>
-        <div>Total Games</div>
-        <div>Total Wins</div>
-        <div>Total Losses</div>
-        <div>Online</div>
-        `;
-        users.appendChild(usersTable);
-        active.forEach(element => {
-            const user = document.createElement('div');
-            user.className = "user";
-            const username = document.createElement('div');
-            username.classList = ["username", "field"]
-            username.textContent = element.username
-            const games = document.createElement('div');
-            games.classList = ["games", "field"];
-            games.textContent = element.games;
-            const wins = document.createElement('div');
-            wins.classList = ["wins", "field"];
-            wins.textContent = element.wins;
-            const losses = document.createElement('div');
-            losses.classList= ['losses', "field"];
-            losses.textContent = element.losses;
-            const is_online = document.createElement('div');
-            is_online.classList= ['is_online', "field"];
-            is_online.textContent = element.online ? "✅":"❌" ;
-            user.appendChild(username);
-            user.appendChild(games);
-            user.appendChild(wins);
-            user.appendChild(losses);
-            user.appendChild(is_online);
-            users.appendChild(user);
-        });
-    }
+        // no register him in the database with flag is_guest = true make a local-storage and no password
+    });
+}
 
-    const removeAllUsers = () => {
-        users.replaceChildren();
-    }
-
-
-
-
-    playerBtn.addEventListener('click', async () => {
-        playerSearchInput.style.display = 'block';
-        users.style.display ='flex';
-        await displayUsers(true);
-       
-    })
-
-    playerSearchInput.addEventListener('input' , async (e) => {
-        e.preventDefault();
-        let current = e.target.value;
-        await displayUsers(false,current);
-        // now for this current value i need to send a request to the api 
-    })
-});

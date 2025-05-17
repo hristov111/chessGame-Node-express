@@ -45,35 +45,23 @@ function isUsernameValid(username, result = {}){
 
 function isPasswordValid(password, res = {}){
     let totalTextArray = password.split('');
-    let paragraph = '';
-    let continueTo = true;
-    if(password ==='') return '';
+    const paragraph = "Password must be between 8 and 20 characters,atleast one lower case char,one upper case char,one number,one special char";
+    if(password ==='') return paragraph;
     if(totalTextArray.length > 20 || totalTextArray.length < 8){
-        paragraph = "❌ Password must be between 8 and 20 characters\n";
-        continueTo = false;
-    }
-    else paragraph = "✅ Password must be between 8 and 20 characters\n"; 
-    
-
+        return paragraph;
+    }    
     let lowerCase = totalTextArray.reduce((sum, curr) => {
         if(curr === curr.toLowerCase() && curr !== curr.toUpperCase())sum++;
         return sum;
     },0)
-    if(lowerCase > 0) paragraph += "✅ Password must have atleast one lower case char\n";
-    else {
-        paragraph += "❌ Password must have atleast one lower case char\n";
-        continueTo = false;
-    }
+    if(lowerCase == 0) return paragraph;
+ 
     
     let upperCase = totalTextArray.reduce((sum, curr) => {
         if(curr === curr.toUpperCase() && curr !== curr.toLowerCase())sum++;
         return sum;
     },0)
-    if(upperCase > 0)paragraph += "✅ Password must have atleast one upper case char\n";
-    else  {
-        paragraph += "❌ Password must have atleast one upper case char\n";
-        continueTo = false;
-    }
+    if(upperCase == 0)return paragraph;
 
     
     let number = totalTextArray.reduce((sum ,curr) => {
@@ -82,23 +70,13 @@ function isPasswordValid(password, res = {}){
         }
         return sum;
     },0);
-    if(number > 0)paragraph += "✅ Password must have atleast one number\n";
-    else {
-        paragraph += "❌ Password must have atleast one number\n";
-        continueTo = false;
-    }
+    if(number == 0) return paragraph;
 
     
     const specialCharacters = ",./;:''!@#$%^&*()_-=+[]{}";
     let specialChars = [...specialCharacters].some(char =>  password.includes(char));
-    if(specialChars) paragraph += "✅ Password must have atleast one special char\n";
-    else {
-        paragraph += "❌ Password must have atleast one special char\n";
-        continueTo = false;
-    }
-    if (Object.keys(res).length === 0)return paragraph;
-    res.checked = continueTo;
-    res.paragraph = paragraph;
+    if(!specialChars) return paragraph;
+    return true;
 }
 
 
@@ -111,7 +89,7 @@ const isEmailValid = (email) =>{
 const isNameValid  = (name) => {
     // no numbers or speical symbols, only letters
     if(name === '')return '';
-    let pattern = /^[a-zA-Z]+$/.test(name);
+    let pattern = /^[a-zA-Z0-9]+$/.test(name);
     return pattern?name.length <20?"✅ Valid Name": "❌ Name too long!":"❌ Name not valid!"
     
 }

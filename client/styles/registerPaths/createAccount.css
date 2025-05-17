@@ -1,0 +1,117 @@
+body {
+    /* display: flex;
+    align-items: start;
+    flex-direction: column; */
+    margin: 0;
+    padding: 0;
+    font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+    background: rgb(44, 37, 37);
+}
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    padding: 12px 20px;
+    width: 50%;
+    background: rgb(44, 37, 37);
+
+}
+  
+  /* Center logo using absolute positioning */
+  .logo {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-weight: bold;
+    color: white;
+    /* padding-right: 20px; */
+    font-size: 1.2rem;
+  }
+  
+  /* Login stays at far right */
+  .login-btn {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+  }
+  
+  /* Spacer keeps the left side balanced */
+  .spacer {
+    width: 60px; /* match width of login to center properly */
+  }
+
+
+.container{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+h1{
+    margin-bottom: 20px;
+}
+
+img {
+    /* width: 150px; */
+    margin: 20px 0;
+}
+
+.signup {
+    padding: 10px 20px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    cursor: pointer;
+    width: 300px;
+    font-size: large;
+    border-radius: 10px;
+    color: white;
+    background-color: green;
+}
+
+.main-screen-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.main-screen-divider span:nth-child(1),
+.main-screen-divider span:nth-child(3) {
+    flex-grow: 1;
+    height: 1px;
+    background-color: #777;
+}
+
+
+.main-screen-divider span:nth-child(2){
+    font-size: 0.9rem;
+    color: #ccc;
+}
+
+h1{
+    color: white;
+}
+
+.main-screen-social {
+    display: flex;
+    gap:10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.google-login,
+.apple-login {
+    padding: 10px 15px;
+    width: 300px;
+    font-weight: bold;
+    background-color: white;
+    color: black;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    background: rgb(77, 62, 62);
+
+}
