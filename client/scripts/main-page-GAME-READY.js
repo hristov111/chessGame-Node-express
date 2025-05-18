@@ -1,14 +1,14 @@
 // here will be the whole logic for the game itself
-import { checkSession, extractAndSet ,setProperButtons} from "./utils/utils.js";
-import { fetchAllActivePlayers } from "./utils/utils.js";
-document.addEventListener("DOMContentLoaded", async()=> {
+import { checkSession, extractAndSet, setProperButtons } from "/scripts/utils/utils.js";
+import { fetchAllActivePlayers } from "/scripts/utils/utils.js";
 
-    // get the navbar header
+(async () => {
+    console.log('game-ready')
     let user;
     const session = await checkSession();
-    if(session.isGuest){
+    if (session.isGuest) {
         user = false;
-    }else {
+    } else {
         user = true;
     }
     await fetchAllActivePlayers();
@@ -40,19 +40,19 @@ document.addEventListener("DOMContentLoaded", async()=> {
     // show players
     const show_players = document.querySelector('.show-players');
 
-    show_players.addEventListener('click',async () => {
-            playerSearchInput.style.display = 'block';
-            users.style.display ='flex';
-            await displayUsers(true);
+    show_players.addEventListener('click', async () => {
+        playerSearchInput.style.display = 'block';
+        users.style.display = 'flex';
+        await displayUsers(true);
     });
 
 
-    if(localStorage.getItem('guestUser')){
+    if (localStorage.getItem('guestUser')) {
         let text_name = JSON.parse(localStorage.getItem('guestUser')).guest_name;
         my_name.textContent = text_name;
     }
 
-    if(!user){
+    if (!user) {
         // user is not logged in
         loginNav.addEventListener('click', (e) => {
             e.preventDefault();
@@ -74,33 +74,33 @@ document.addEventListener("DOMContentLoaded", async()=> {
         try {
             const response = await fetch('/api/users/players');
             console.log(await response.json());
-            if(!response.ok){
+            if (!response.ok) {
                 console.log("Request failed");
-            }else {
+            } else {
                 let users = await response.json();
-                users.sort((first,next) => first.username.localeCompare(next.username));
+                users.sort((first, next) => first.username.localeCompare(next.username));
                 console.log(users);
                 return users;
-                
+
             }
-        }catch(error){
+        } catch (error) {
             console.log("Error fetching users: ", error);
         }
     }
 
-    const fetchUserByName = async(char) => {
+    const fetchUserByName = async (char) => {
         const response = await fetch(`/api/users/active?char=${char}`);
-        if(!response.ok)console.log("Bad request");
+        if (!response.ok) console.log("Bad request");
         else {
             let users = await response.json();
-            users.sort((first,next) => first.username.localeCompare(next.username));
+            users.sort((first, next) => first.username.localeCompare(next.username));
             return users;
         }
     }
 
-    const displayUsers = async (displayAll = true,findBychar = '') => {
+    const displayUsers = async (displayAll = true, findBychar = '') => {
         let active = await fetchAllPlayers();
-        if(!displayAll){
+        if (!displayAll) {
             active = await fetchUserByName(findBychar);
         }
         removeAllUsers();
@@ -127,11 +127,11 @@ document.addEventListener("DOMContentLoaded", async()=> {
             wins.classList = ["wins", "field"];
             wins.textContent = element.wins;
             const losses = document.createElement('div');
-            losses.classList= ['losses', "field"];
+            losses.classList = ['losses', "field"];
             losses.textContent = element.losses;
             const is_online = document.createElement('div');
-            is_online.classList= ['is_online', "field"];
-            is_online.textContent = element.online ? "✅":"❌" ;
+            is_online.classList = ['is_online', "field"];
+            is_online.textContent = element.online ? "✅" : "❌";
             user.appendChild(username);
             user.appendChild(games);
             user.appendChild(wins);
@@ -147,10 +147,12 @@ document.addEventListener("DOMContentLoaded", async()=> {
 
 
 
-    playerSearchInput.addEventListener('input' , async (e) => {
+    playerSearchInput.addEventListener('input', async (e) => {
         e.preventDefault();
         let current = e.target.value;
-        await displayUsers(false,current);
+        await displayUsers(false, current);
         // now for this current value i need to send a request to the api 
     })
 })
+// get the navbar header
+

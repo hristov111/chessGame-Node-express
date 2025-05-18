@@ -1,9 +1,11 @@
-document.addEventListener("DOMContentLoaded", () => {
+import { navigate } from "../router.js";
 
+(() => {
     // signUp btn
     const signUpBtn = document.querySelector('.signup');
-    signUpBtn.addEventListener('click', (e) => {
+    signUpBtn.addEventListener('click', async (e) => {
         e.preventDefault();
-        window.location.href = '/register?step=skill-level'
+        await navigate("createAccount?step=createSkill-level");
     })
-})
+
+})();

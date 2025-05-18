@@ -26,6 +26,16 @@ body {
     background-color: #111;
     color: #f1f1f1;
 }
+.app{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #eee;
+    margin:0;
+    font-family: "Segoe UI", sans-serif;
+    background-color: #111;
+    color: #f1f1f1;
+}
 
 .tab .name {
     font-size: 15px;

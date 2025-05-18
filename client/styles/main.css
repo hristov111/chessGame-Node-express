@@ -7,64 +7,7 @@ body {
 
 /* MODAL WINDOW */
 
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    backdrop-filter: blur(6px);
-    background: rgba(0, 0, 0, 0.3);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index:1000;
-}
 
-.modal-content {
-    position: relative;
-    background: rgb(44, 37, 37);
-    padding: 2rem; 
-    border-radius: 10px;
-    text-align: center;
-    width: 500px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
-}
-.modal-close {
-    position: absolute;
-    top: 10px;
-    right: 15px;
-    font-size: 35px;
-    cursor: pointer;
-    color: #888;
-}
-
-.modal-close:hover {
-    color: #000;
-}
-
-.modal-btn {
-    display: block;
-    width: 100%;
-    margin: 10px 0;
-    padding: 10px;
-    background-color: #333;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-
-.modal-btn:hover{
-    background-color: #555;
-}
-
-.close-window {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
 /* ------------------------------------ */
 
 
