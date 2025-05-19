@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const {getAllUsersFunc,getUserByIdFunc,usernameExistsFunc,getUserByUsernameFunc,createUserFunc,
+const {getAllUsersFunc,getUserByIdFunc,restoreGuestFunc,usernameExistsFunc,getUserByUsernameFunc,createUserFunc,
     updatePlayerActiveStateFunc,createGuestUserFunc,
     updateAllActiveStateFunc,getallActiveUsersFunc,getAllUnactiveUsersFunc,getUserByCharFunc,updatePasswordFunc,getEverythingForUser
 ,getSession,updateProfileFunc} = require('../controllers/users.js');
@@ -15,6 +15,7 @@ router.route('/existsUsername').get([
     query('guest_username').notEmpty().withMessage("Specify the username to check!")
     ,validate],usernameExistsFunc);
 router.route('/createGuest').post(createGuestUserFunc); 
+router.route("restore-guest").post(restoreGuestFunc);
 router.use(requireLogin);
 router.route("/verifypassword").post([
     body('usr').notEmpty().withMessage("Specify a user"),

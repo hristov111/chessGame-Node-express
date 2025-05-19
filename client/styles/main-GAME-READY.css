@@ -164,6 +164,9 @@ body {
     color: #28a745;
     font-weight: bold;
 }
+.footer-window h1 {
+    padding:12px;
+}
 
 .users{
     margin-top: 20px;

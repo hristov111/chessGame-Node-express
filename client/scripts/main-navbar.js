@@ -1,6 +1,6 @@
 
 import { navigate, loadPage, navbar } from "./router.js";
-(() => {
+( async() => {
     console.log('hey');
     const navPlay = document.querySelector('#nav-play');
     const navPuzzle = document.querySelector('#nav-puzzles');

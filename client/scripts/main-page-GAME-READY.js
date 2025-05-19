@@ -1,32 +1,41 @@
 // here will be the whole logic for the game itself
 import { checkSession, extractAndSet, setProperButtons } from "/scripts/utils/utils.js";
-import { fetchAllActivePlayers } from "/scripts/utils/utils.js";
+import { fetchAllActivePlayers ,pageAuthentication} from "/scripts/utils/utils.js";
 
+
+/**if(user_fetch.status == 401){
+        return {
+            session:false,
+        } 
+    }
+    else if(user_fetch.status == 200) {
+        const data = await user_fetch.json();
+        return {
+            session:true,
+            isGuest:data.isGuest
+        } */
 (async () => {
     console.log('game-ready')
-    let user;
-    const session = await checkSession();
-    if (session.isGuest) {
-        user = false;
-    } else {
-        user = true;
-    }
+
+    const user = await pageAuthentication();
     await fetchAllActivePlayers();
+    // lets set 
+
 
 
     // people playing - games today--------------------
     const peoplePlaying = document.querySelector('.people-playing');
     const gamesToday = document.querySelector('.games-today');
     //------------------------------------
-
-    const loginNav = document.querySelector('#nav-login');
-    const signUpNav = document.querySelector('.signup-btn');
-    const guestMenu = document.querySelector('#guest-menu');
-    const userMenu = document.querySelector('#user-menu');
-
     const opponent_name = document.querySelector('.opponent-name');
     const my_name = document.querySelector('.my-name');
 
+    const newGameButton = document.querySelector(".new-game");
+
+
+    if(user){
+        my_name.textContent = JSON.parse(localStorage.getItem("guestUser")).value.guest_name;   
+    }
     // start game button
     const start_gameButt = document.querySelector('.start-game');
 
@@ -38,32 +47,21 @@ import { fetchAllActivePlayers } from "/scripts/utils/utils.js";
 
 
     // show players
-    const show_players = document.querySelector('.show-players');
+    const show_playersButt = document.querySelector('.show-players');
+    const startGameTab = document.querySelector('start-gameTab');
 
-    show_players.addEventListener('click', async () => {
+    show_playersButt.addEventListener('click', async () => {
+        startGameTab.style.display = 'none';
         playerSearchInput.style.display = 'block';
         users.style.display = 'flex';
-        await displayUsers(true);
+        // await displayUsers(true);
     });
+    newGameButton.addEventListener('click', async () => {
+        playerSearchInput.style.display = 'none';
+        users.style.display = 'none';
+        startGameTab.style.display = 'flex';
 
-
-    if (localStorage.getItem('guestUser')) {
-        let text_name = JSON.parse(localStorage.getItem('guestUser')).guest_name;
-        my_name.textContent = text_name;
-    }
-
-    if (!user) {
-        // user is not logged in
-        loginNav.addEventListener('click', (e) => {
-            e.preventDefault();
-            window.location.href = '/login';
-        })
-        signUpNav.addEventListener('click', () => {
-            window.location.href = '/register';
-        })
-    }
-
-    await setProperButtons();
+    })
 
     let board = document.querySelector('.board');
 
@@ -153,6 +151,6 @@ import { fetchAllActivePlayers } from "/scripts/utils/utils.js";
         await displayUsers(false, current);
         // now for this current value i need to send a request to the api 
     })
-})
+})();
 // get the navbar header
 

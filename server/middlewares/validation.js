@@ -17,6 +17,7 @@ const requireAdmin = (req,res,next) => {
 }
 
 const requireLogin = (req,res,next) => {
+    console.log(req.session);
     if(!req.session.user){
         console.log('not authorised');
         return res.status(401).json({msg: "Unauthorized"});

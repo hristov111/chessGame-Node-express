@@ -46,7 +46,7 @@ const getAllUsersFunc = async (req,res) => {
 
 const getSession = async (req,res) => {
     console.log('here');
-    res.status(200).json({username: req.session.user});
+    res.status(200).json(req.session.user);
 }
 
 const updatePasswordFunc = async (req,res) => {
@@ -98,9 +98,9 @@ const updateProfileFunc = async (req,res) => {
 
 const getUserByIdFunc = async (req,res) => {
     try {
-        const {id:taskId} =req.body;
-        const task = await getUserById(taskId);
-        if(!task)return res.status(404).json({msg:`No task with id: ${taskId}`});
+        const {id} =req.body;
+        const user= await getUserById(id);
+        if(!user)return res.status(404).json({msg:`Nou user with id: ${id}`});
         res.status(200).json({task})
     }catch(error){
         res.status(500).json({msg:error});
@@ -183,6 +183,30 @@ const createGuestUserFunc = async (req,res) => {
     }
 }
 
+const restoreGuestFunc = async (req,res) => {
+    const {guest_id} = req.body;
+    if(!guest_id){
+        return res.status(400).json({msg: "Guest ID required"});
+    }
+
+    // Chek if guest exists and iss till valid
+    const guestUser = await getUserById(guest_id);
+
+    if(!guestUser || !guestUser.is_guest){
+        return res.status(404).json({msg: "Guest not found or invalid"});
+    }
+
+    // Re-establish session
+    req.session.user = {
+        id:guest_id,
+        username:guestUser.username,
+        isAdmin:false,
+        isGuest:true
+    }
+
+    return res.status(200).json({msg: "Session restored", use:req.session.user});
+}
+
 const updatePlayerActiveStateFunc = async (req,res) => {
     const name = req.query.name;
     const status = req.query.status;
@@ -247,7 +271,7 @@ module.exports = {
     getAllUsersFunc,getUserByIdFunc,getUserByUsernameFunc,createUserFunc,
     updatePlayerActiveStateFunc,usernameExistsFunc,createGuestUserFunc,
     updateAllActiveStateFunc,getallActiveUsersFunc,getAllUnactiveUsersFunc,getUserByCharFunc,updatePasswordFunc
-    ,getSession,getEverythingForUser,updateProfileFunc
+    ,getSession,getEverythingForUser,updateProfileFunc,restoreGuestFunc
 }
 
 
