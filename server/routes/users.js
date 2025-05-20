@@ -15,8 +15,9 @@ router.route('/existsUsername').get([
     query('guest_username').notEmpty().withMessage("Specify the username to check!")
     ,validate],usernameExistsFunc);
 router.route('/createGuest').post(createGuestUserFunc); 
-router.route("restore-guest").post(restoreGuestFunc);
+router.route("/restore-guest").post(restoreGuestFunc);
 router.use(requireLogin);
+// router.route("/:id").get(getUserByIdFunc)
 router.route("/verifypassword").post([
     body('usr').notEmpty().withMessage("Specify a user"),
     body('oldPassword').notEmpty().withMessage("Password required"),
@@ -61,7 +62,9 @@ router.route("/updateplayer").patch([
   validate
 ], updatePlayerActiveStateFunc);
 router.route("/updateplayers").patch(updateAllActiveStateFunc);
+router.route("/:id").get(getUserByIdFunc)
 router.route("/:user").get(getEverythingForUser);
+
 
 
 module.exports = router;

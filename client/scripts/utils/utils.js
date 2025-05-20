@@ -205,7 +205,7 @@ const registerUser = async (username, password, errorParagraph, redirectPage) =>
     }
 }
 
-const getAllactiveGames = async () => {
+const getAllActiveGames = async () => {
     try {
         const res = await fetch('/api/games/getActiveGames', {
             method: "GET",
@@ -224,6 +224,39 @@ const getAllactiveGames = async () => {
     }
 }
 
+const getGamesForToday = async() => {
+    try {
+        const res = await fetch('api/games/getGamesForToday', {
+            method:"GET",
+            headers: {"Content-Type": "application/json"},
+            credentials: "include"
+
+        });
+
+        const data = await res.json();
+        if(res.status == 200){
+            console.log(data);
+            return data;
+        }else {
+            console.log("Couldnt get games for today");
+        }
+    }catch(error){
+        console.log(error);
+    }
+}
+
+function getTitleByELO(elo) {
+  if (elo < 400) return "Novice";
+  if (elo < 1000) return "Casual";
+  if (elo < 1400) return "Intermediate";
+  if (elo < 1700) return "Advanced";
+  if (elo < 2000) return "Expert";
+  if (elo < 2200) return "Candidate Master";
+  if (elo < 2400) return "Master";
+  if (elo < 2600) return "International Master";
+  return "Grandmaster";
+}
+
 
 const fetchAllActivePlayers = async () => {
     //    router.route("/allActive").get(getallActiveUsersFunc);
@@ -235,10 +268,30 @@ const fetchAllActivePlayers = async () => {
 
         if (res.status == 200) {
             const data = await res.json();
-            console.log(data);
+            return data;
         }
     } catch (err) {
         console.error(err);
+    }
+}
+
+
+const getPlayerById = async(id) => {
+    try {
+        const res = await fetch(`api/users/${id}`, {
+            method:"GET",
+            credentials: "include"
+        });
+        if(res.status == 200){
+            const data = await res.json();
+            console.log(data);
+            return data;
+        }else {
+            console.log("Failed fetching");
+        }
+
+    }catch(error){
+        console.log("Failed fetching: ", error);
     }
 }
 
@@ -291,6 +344,6 @@ const refreshExpiry = (key, ttl) => {
 }
 
 export {
-    extractAndSet, refreshExpiry, setwithExpiry, getwithExpiry, fetchUserINfo, greetUser, createGuestUser, fetchAllActivePlayers,
-    checkIfUsernameExists, checkSession, registerUser, setProperButtons, generateGuestName,openModalOverlay,pageAuthentication,closeModalOverlay
+    extractAndSet,getTitleByELO, refreshExpiry, setwithExpiry, getwithExpiry, getPlayerById,fetchUserINfo, greetUser, createGuestUser, fetchAllActivePlayers,
+    checkIfUsernameExists, checkSession, registerUser, setProperButtons, generateGuestName,openModalOverlay,pageAuthentication,closeModalOverlay,getGamesForToday
 };

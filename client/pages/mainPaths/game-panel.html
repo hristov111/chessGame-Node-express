@@ -1,4 +1,9 @@
 <div class="modal-overlay" id="authModal"></div>
+<div class="search-modal-overlay hide" id="searchModal">
+    <div class="search-modal">
+        <h2>🔍  Searching, please wait <span class="dots"></span></h2>
+    </div>
+</div>
 <div class="game-board">
     <div class="oponent tab">
         <div class="person">
@@ -28,7 +33,7 @@
                 <button class="start-gameButt">Start Game</button>
                 <button>Play a Friend</button>
             </div>
-            <div class="search-players"style="display: none;">
+            <div class="search-players" style="display: none;">
                 <div class="play-user">
                     <input type="text" name="playerSearch" placeholder="Search for available enemies...">
                 </div>
@@ -38,8 +43,10 @@
                         <div>Total Games</div>
                         <div>Total Wins</div>
                         <div>Total Losses</div>
-                        <div>Is Online</div>
+                        <div>Online</div>
+                        <div>Playing</div>
                     </div>
+                    <div class="user-tags"></div>
                 </div>
             </div>
         </div>
@@ -47,6 +54,27 @@
     <div class="footer-window">
         <h1><span class="people-playing">0</span> Active Players</h1>
         <h1><span class="games-today">0</span> Games Today</h1>
+    </div>
+</div>
+
+<div class="player-popup hidden" id="playerPopup">
+    <div class="popup-header">
+        <img src="" class="popup-avatar" alt="">
+        <div class="popup-info">
+            <span class="popup-title">
+                <span class="popup-title-tag">GM</span>Magnus no<span class="popup-diamong">❤</span>
+            </span>
+            <div class="popup-name">Magnus</div>
+            <div class="popup-meta">
+                some meta info
+            </div>
+            <span class="popup-rank">Grandmaster</span>
+        </div>
+    </div>
+    <div class="popup-actions">
+        <button class="popup-btn">...</button>
+        <button class="popup-btn pop-upAddFiend">Add Friend</button>
+        <button class="popup-btn challange">Challange</button>
     </div>
 </div>
 

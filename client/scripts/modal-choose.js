@@ -57,6 +57,8 @@ guestPlayButt.addEventListener('click', async () => {
             }
             setwithExpiry("guestUser", user, twoDaysInMs);
             console.log("successfully logged user", user);
+            closeModalOverlay(modalOverlay);
+            window.location.href = window.location.href;
         } else {
             localStorage.setItem("guestUser", false);
         }
@@ -88,6 +90,8 @@ guestPlayButt.addEventListener('click', async () => {
         navigate("game-panel")
     }else{
         closeModalOverlay(modalOverlay);
+        window.location.href = window.location.href;
+
     }
 
     // here i need to reestablish the session

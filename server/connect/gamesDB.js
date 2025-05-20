@@ -6,7 +6,12 @@ const getActiveGames = async () =>{
     return rows[0].count;
 }
 
+const getGamesForToday = async() => {
+    const rows = pool.query("SELECT COUNT(id) AS count FROM games WHERE start_time >= NOW() - INTERVAL 1 DAY");
+    return rows[0].count;
+}
 
-export {getActiveGames};
+
+export {getActiveGames,getGamesForToday};
 
 

@@ -1,10 +1,12 @@
-import { extractAndSet, getwithExpiry,pageAuthentication, refreshExpiry, fetchUserINfo, setwithExpiry, setProperButtons, checkSession, generateGuestName, createGuestUser } from "./utils/utils.js";
+import { extractAndSet, getwithExpiry,openModalOverlay,pageAuthentication, refreshExpiry, fetchUserINfo, setwithExpiry, setProperButtons, checkSession, generateGuestName, createGuestUser } from "./utils/utils.js";
 import { navigate } from "./router.js";
 (async () => {
 
 
 
     const user = await pageAuthentication();
+    const modalOverlay = document.querySelector('.modal-overlay');
+
 
     // play button 1
     const play_onlineButt = document.querySelector(".primary");
@@ -26,7 +28,7 @@ import { navigate } from "./router.js";
                 if (user) {
                     navigate("game-panel");
                 } else {
-                    openModalOverlay('playButton');
+                    openModalOverlay('playButton',modalOverlay);
                 }
             } catch (err) {
                 console.error("Session checkf ailed:", err);

@@ -10,7 +10,7 @@ const pageConfig = {
         src: "/pages/mainPaths",
         navbar: "main-navbar",
         scripts: ["/scripts/main-page-GAME-READY.js", "/scripts/chess_script.js"],
-        styles: ["/styles/partials/modal-choose.css","/styles/partials/main-nav-VERTICAL.css", "/styles/chess-style.css", "/styles/main-GAME-READY.css"],
+        styles: ["/styles/partials/modal-choose.css","/styles/partials/main-nav-VERTICAL.css", "/styles/chess-style.css", "/styles/main-GAME-READY.css","/styles/popupprofile.css"],
     },
     login: {
         src: "/pages/mainPaths",
@@ -36,6 +36,8 @@ const pageConfig = {
         scripts: ["/scripts/registerPaths/loginInfo.js"],
         styles: ["/styles/registerPaths/loginInfo.css"],
     },
+
+    
     "main-navbar": {
         src: "/pages/partials/main-navbar.html",
         scripts: ["/scripts/main-navbar.js"],

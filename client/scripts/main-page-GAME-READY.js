@@ -1,6 +1,6 @@
 // here will be the whole logic for the game itself
 import { checkSession, extractAndSet, setProperButtons } from "/scripts/utils/utils.js";
-import { fetchAllActivePlayers ,pageAuthentication} from "/scripts/utils/utils.js";
+import { fetchAllActivePlayers, pageAuthentication, getGamesForToday, getPlayerById } from "/scripts/utils/utils.js";
 
 
 /**if(user_fetch.status == 401){
@@ -18,48 +18,63 @@ import { fetchAllActivePlayers ,pageAuthentication} from "/scripts/utils/utils.j
     console.log('game-ready')
 
     const user = await pageAuthentication();
-    await fetchAllActivePlayers();
-    // lets set 
+
+    // actibvve players for today
+    const peoplePlaying = document.querySelector('.people-playing');
+    const activePlayers = await fetchAllActivePlayers();
+    if (activePlayers) peoplePlaying.textContent = activePlayers.length;
 
 
+
+    // games for today
+    const gamesToday = document.querySelector('.games-today');
+    const gamesForTodayFetch = await getGamesForToday();
+    if (gamesForTodayFetch) gamesToday.textContent = gamesForTodayFetch;
 
     // people playing - games today--------------------
-    const peoplePlaying = document.querySelector('.people-playing');
-    const gamesToday = document.querySelector('.games-today');
     //------------------------------------
     const opponent_name = document.querySelector('.opponent-name');
     const my_name = document.querySelector('.my-name');
 
-    const newGameButton = document.querySelector(".new-game");
 
 
-    if(user){
-        my_name.textContent = JSON.parse(localStorage.getItem("guestUser")).value.guest_name;   
+    if (user) {
+        my_name.textContent = JSON.parse(localStorage.getItem("guestUser")).value.guest_name;
     }
     // start game button
     const start_gameButt = document.querySelector('.start-game');
+    start_gameButt.addEventListener('click', () => {
+        // find someone that is on your level 
+    })
 
 
     const playerBtn = document.querySelector('.user-btn');
     const playerSearchInput = document.querySelector('.play-user input');
-
     const users = document.querySelector('.users');
+    const user_Tags = document.querySelector('.user-tags');
 
+    //TABS for display none or 
+    const searchPlayersTab = document.querySelector('.search-players');
+    const startGameTab = document.querySelector('.start-gameTab');
 
-    // show players
     const show_playersButt = document.querySelector('.show-players');
-    const startGameTab = document.querySelector('start-gameTab');
-
+    const newGameButton = document.querySelector(".new-game");
     show_playersButt.addEventListener('click', async () => {
+        newGameButton.style.backgroundColor = "#28a745";
+        show_playersButt.style.backgroundColor = "#218838";
         startGameTab.style.display = 'none';
-        playerSearchInput.style.display = 'block';
-        users.style.display = 'flex';
+        searchPlayersTab.style.display = 'block';
+        await displayUsers();
+        // here i need to call displayAllplayers 
+
+
         // await displayUsers(true);
     });
     newGameButton.addEventListener('click', async () => {
-        playerSearchInput.style.display = 'none';
-        users.style.display = 'none';
-        startGameTab.style.display = 'flex';
+        newGameButton.style.backgroundColor = "#218838";
+        show_playersButt.style.backgroundColor = "#28a745";
+        searchPlayersTab.style.display = 'none';
+        startGameTab.style.display = 'block';
 
     })
 
@@ -71,7 +86,6 @@ import { fetchAllActivePlayers ,pageAuthentication} from "/scripts/utils/utils.j
     const fetchAllPlayers = async () => {
         try {
             const response = await fetch('/api/users/players');
-            console.log(await response.json());
             if (!response.ok) {
                 console.log("Request failed");
             } else {
@@ -95,6 +109,7 @@ import { fetchAllActivePlayers ,pageAuthentication} from "/scripts/utils/utils.j
             return users;
         }
     }
+    const popup = document.getElementById('playerPopup');
 
     const displayUsers = async (displayAll = true, findBychar = '') => {
         let active = await fetchAllPlayers();
@@ -102,16 +117,6 @@ import { fetchAllActivePlayers ,pageAuthentication} from "/scripts/utils/utils.j
             active = await fetchUserByName(findBychar);
         }
         removeAllUsers();
-        const usersTable = document.createElement('div');
-        usersTable.className = 'users-table';
-        usersTable.innerHTML = `
-        <div>Username</div>
-        <div>Total Games</div>
-        <div>Total Wins</div>
-        <div>Total Losses</div>
-        <div>Online</div>
-        `;
-        users.appendChild(usersTable);
         active.forEach(element => {
             const user = document.createElement('div');
             user.className = "user";
@@ -130,17 +135,49 @@ import { fetchAllActivePlayers ,pageAuthentication} from "/scripts/utils/utils.j
             const is_online = document.createElement('div');
             is_online.classList = ['is_online', "field"];
             is_online.textContent = element.online ? "✅" : "❌";
+            const is_playing = document.createElement('div');
+            is_playing.classList = ['is_playing', "field"];
+            is_playing.textContent = element.playing ? "✅" : "❌";
             user.appendChild(username);
             user.appendChild(games);
             user.appendChild(wins);
             user.appendChild(losses);
             user.appendChild(is_online);
-            users.appendChild(user);
+            user.appendChild(is_playing);
+            user_Tags.appendChild(user);
+            user.addEventListener('click', async (e) => {
+                const rect = user.getBoundingClientRect();
+                popup.style.top = `${rect.top + window.screenY + user.offsetHeight}px`;
+                popup.style.left = `${rect.left + window.screenY}px`;
+                popup.classList.remove('hidden');
+                console.log(element.id);
+                const player = await getPlayerById(element.id);
+                console.log(player);
+
+                const img = document.querySelector('.popup-header');
+                const username = document.querySelector('.popup-title');
+                const name = document.querySelector(".popup-name");
+                // meta will be the rank in integer
+                const meta = document.querySelector('.popup-meta');
+                // rank will be the name of ther ank grandmaster and tn
+                const rank = document.querySelector('.popup-rank');
+                if (player.profile_picture == null) {
+                    img.src = "../images/profile.png"
+                } else img.src = player.profile_picture
+                username.textContent = player.username;
+                if (name) name.textContent = player.firstname
+                meta.textContent = player.rank
+                rank.textContent = player.text_rank
+                
+
+
+                // make a fetch request for username and .....
+            })
         });
     }
 
     const removeAllUsers = () => {
-        users.replaceChildren();
+        user_Tags.replaceChildren();
     }
 
 
@@ -151,6 +188,41 @@ import { fetchAllActivePlayers ,pageAuthentication} from "/scripts/utils/utils.j
         await displayUsers(false, current);
         // now for this current value i need to send a request to the api 
     })
+
+
+    // POP UP FOR PROFILES
+
+
+    document.addEventListener("click", (e) => {
+        if (!popup.contains(e.target) && !e.target.closest('.user')) {
+            popup.classList.add("hidden");
+        }
+    })
+
+    const popUpAddFriend = document.querySelector(".pop-upAddFiend");
+    const popUpChallange = document.querySelector(".challange");
+
+    popUpAddFriend.addEventListener('click', () => {
+        const user = JSON.parse(localStorage.getItem("guestUser"));
+        if(user.value.isGuest)return;
+        else{
+            // add him as a friend 
+        }
+    })
+
+
+    popUpChallange.addEventListener('click', () => {
+         const user = JSON.parse(localStorage.getItem("guestUser"));
+        if(user.value.isGuest)return;
+        else{
+            // add him send him a challange
+        }
+    })
+
+
+
+
+
 })();
 // get the navbar header
 

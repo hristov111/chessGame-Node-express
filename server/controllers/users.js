@@ -33,15 +33,19 @@ const getAllUsersFunc = async (req,res) => {
     const users= await getUsers();
     const names = users.map(el => {
         return {
+            id:el.id,
             username:el.username,
             games:el.total_games,
             wins:el.total_wins,
             losses:el.total_losses,
-            online:el.is_online
+            online:el.is_online,
+            playing:el.is_playing
         }   
     });
     res.status(200).json(names);
 }
+
+
 
 
 const getSession = async (req,res) => {
@@ -98,12 +102,29 @@ const updateProfileFunc = async (req,res) => {
 
 const getUserByIdFunc = async (req,res) => {
     try {
-        const {id} =req.body;
+        const id =req.params.id;
+        console.log(id);
         const user= await getUserById(id);
+        console.log(user);
         if(!user)return res.status(404).json({msg:`Nou user with id: ${id}`});
-        res.status(200).json({task})
+         const details = 
+        {
+            id:user.id,
+            text_rank:user.text_rank,
+            username:user.username,
+            firstname:user.firstname,
+            lastname:user.lastname,
+            profile_picture:user.profile_picture,
+            games:user.total_games,
+            wins:user.total_wins,
+            rank:user.ranking,
+            losses:user.total_losses,
+            online:user.is_online,
+            playing:user.is_playing
+        }   
+        return res.status(200).json(details);
     }catch(error){
-        res.status(500).json({msg:error});
+        return res.status(500).json({msg:error});
     }
    
 }
@@ -185,6 +206,7 @@ const createGuestUserFunc = async (req,res) => {
 
 const restoreGuestFunc = async (req,res) => {
     const {guest_id} = req.body;
+    console.log(guest_id);
     if(!guest_id){
         return res.status(400).json({msg: "Guest ID required"});
     }
