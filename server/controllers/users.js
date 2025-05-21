@@ -1,5 +1,5 @@
 const { getUsers,getUserById,getUserByUsername,createUser
-    ,updatePlayerActiveState,getUserByEmail,createGuestUser,
+    ,updatePlayerActiveState,getUserByEmail,createGuestUser,getGameSearchUsers,
     updateAllActiveState,getAllActiveUsers,getAllUnactiveUsers,getUsersByChar,updatePassword,updateUser,getAdminStatus
 } = require('../connect/usersDB.js');
 const bcrypt = require('bcrypt');
@@ -100,6 +100,27 @@ const updateProfileFunc = async (req,res) => {
     }
 }
 
+const updateGameSearchState = async (req,res) => {
+    try{
+        const {id,is_searching} = req.body;
+        console.log(id,is_searching);
+        const user = await getUserById(id);
+        console.log(user);
+        const updateFields = {};
+        if(!user)return res.status(404).json({msg: "User doesnt exists"});
+
+        if(is_searching == null)return res.status(400).json({msg: "No fields to update"});
+        updateFields.is_searching_for_game = is_searching;
+
+        const result = await updateUser(id,updateFields);
+        if(result.affectedRows === 0) return res.status(400).json({msg: "Update failed"});
+
+        return res.status(200).json({msg: "Game search state updated successfully"});
+    }catch(error){
+        return res.status(500).json({msg: `Server error: ${error}`});
+    }
+}
+
 const getUserByIdFunc = async (req,res) => {
     try {
         const id =req.params.id;
@@ -177,6 +198,36 @@ const createUserFunc = async (req,res) => {
         res.status(500).json({msg:error});
     }       
 
+}
+
+const getGameSearchingUsers = async (req,res) => {
+    try {
+        const id = req.params.id;
+        // get searching people except for you 
+        const users = await getGameSearchUsers(id);
+        console.log(users, id);
+        if(!users)return res.status(404).json({msg: "No active game searchers"});
+        const fixed_users = users.map(user => {
+            return {
+                id:user.id,
+                text_rank:user.text_rank,
+                username:user.username,
+                firstname:user.firstname,
+                lastname:user.lastname,
+                profile_picture:user.profile_picture,
+                games:user.total_games,
+                wins:user.total_wins,
+                rank:user.ranking,
+                losses:user.total_losses,
+                online:user.is_online,
+                playing:user.is_playing
+            }
+        })
+        return res.status(200).json(fixed_users);
+
+    }catch (error){
+        return res.status(500).json({msg:error});
+    }
 }
 
 const createGuestUserFunc = async (req,res) => {
@@ -290,10 +341,10 @@ const getEverythingForUser = async(req,res) => {
 
 
 module.exports = {
-    getAllUsersFunc,getUserByIdFunc,getUserByUsernameFunc,createUserFunc,
+    getAllUsersFunc,getUserByIdFunc,getUserByUsernameFunc,createUserFunc,updateGameSearchState,
     updatePlayerActiveStateFunc,usernameExistsFunc,createGuestUserFunc,
     updateAllActiveStateFunc,getallActiveUsersFunc,getAllUnactiveUsersFunc,getUserByCharFunc,updatePasswordFunc
-    ,getSession,getEverythingForUser,updateProfileFunc,restoreGuestFunc
+    ,getSession,getEverythingForUser,updateProfileFunc,restoreGuestFunc,getGameSearchingUsers
 }
 
 

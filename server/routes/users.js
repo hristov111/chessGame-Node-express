@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const {getAllUsersFunc,getUserByIdFunc,restoreGuestFunc,usernameExistsFunc,getUserByUsernameFunc,createUserFunc,
-    updatePlayerActiveStateFunc,createGuestUserFunc,
+    updatePlayerActiveStateFunc,createGuestUserFunc,updateGameSearchState,getGameSearchingUsers,
     updateAllActiveStateFunc,getallActiveUsersFunc,getAllUnactiveUsersFunc,getUserByCharFunc,updatePasswordFunc,getEverythingForUser
 ,getSession,updateProfileFunc} = require('../controllers/users.js');
 
@@ -61,9 +61,11 @@ router.route("/updateplayer").patch([
 
   validate
 ], updatePlayerActiveStateFunc);
+router.route("/updateGameSearchState").patch(updateGameSearchState);
 router.route("/updateplayers").patch(updateAllActiveStateFunc);
-router.route("/:id").get(getUserByIdFunc)
-router.route("/:user").get(getEverythingForUser);
+router.route("/get-searchingUsers/:id").get(getGameSearchingUsers);
+router.route("/by-id/:id").get(getUserByIdFunc)
+router.route("/by-username/:user").get(getEverythingForUser);
 
 
 

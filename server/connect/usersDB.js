@@ -46,19 +46,25 @@ const updatePassword = async(username, password_hash) => {
     return rows;
 }
 
-const updateUser = async (username, fields) => {
+const updateUser = async (id, fields) => {
     const keys = Object.keys( fields);
     const values = Object.values( fields);
 
     const setClause = keys.map(key => `${key} = ?`).join(",");
 
     const [rows] = await pool.query(
-        `UPDATE users SET ${setClause} WHERE username = ?`, [...values,username]
+        `UPDATE users SET ${setClause} WHERE id = ?`, [...values,id]
     );
     return rows;
 
 
 }
+
+const getGameSearchUsers = async (id) => {
+    const [rows] = await pool.query("SELECT * FROM users WHERE is_searching_for_game = true AND id != ?",[id]);
+    return rows;
+}
+
 
 const updateAllActiveState = async (state) => {
     const [rows] = await pool.query("UPDATE users SET is_online = ?", [state]);
@@ -81,5 +87,5 @@ const getUsersByChar = async(char) => {
 }
 
 export {getUsers,getUserById,getUserByUsername,createUser,updatePlayerActiveState,updateAllActiveState, getAllActiveUsers, getAllUnactiveUsers,getUsersByChar,
-    updatePassword,updateUser,getAdminStatus,getUserByEmail,createGuestUser
+    updatePassword,updateUser,getAdminStatus,getUserByEmail,createGuestUser,getGameSearchUsers
 }

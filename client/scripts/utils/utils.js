@@ -20,7 +20,7 @@ const openModalOverlay = (trigger, modalOverlay) => {
     }
 }
 
-const closeModalOverlay = ( modalOverlay) => {
+const closeModalOverlay = (modalOverlay) => {
     if (modalOverlay) {
         modalOverlay.style.display = 'none';
     } else {
@@ -31,16 +31,16 @@ const closeModalOverlay = ( modalOverlay) => {
 
 const pageAuthentication = async () => {
     const modalOverlay = document.querySelector('.modal-overlay');
-    if(!modalOverlay)return null;
-    await extractAndSet(modalOverlay, '/pages/partials/modal-choose.html',null, ['/scripts/modal-choose.js']);
+    if (!modalOverlay) return null;
+    await extractAndSet(modalOverlay, '/pages/partials/modal-choose.html', null, ['/scripts/modal-choose.js']);
     let user = undefined;
     console.log('pageAuth');
     const res = await checkSession();
     // session has expired now get to log in sign up or play as guest   
-    if (!res.session) openModalOverlay("sessionCheck",modalOverlay);
-    else if(res.session && !localStorage.getItem("guestUser")){
+    if (!res.session) openModalOverlay("sessionCheck", modalOverlay);
+    else if (res.session && !localStorage.getItem("guestUser")) {
         // guest user was removed, add him back
-        setwithExpiry("guestUser",{id:res.id,guest_name:res.username,isAdmin:false,isGuest:res.isGuest},2 * 24 * 60 * 60 * 1000);
+        setwithExpiry("guestUser", { id: res.id, guest_name: res.username, isAdmin: false, isGuest: res.isGuest }, 2 * 24 * 60 * 60 * 1000);
     }
     else if (res.session && res.isGuest) {
         user = "guest";
@@ -93,6 +93,26 @@ const fetchUserINfo = async () => {
         }
     } else return JSON.parse(localStorage.getItem("user"));
 
+}
+
+const updateUserGameSearchState = async (id, is_searching) => {
+    try {
+        const res = await fetch("/api/users/updateGameSearchState", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, is_searching })
+        });
+
+        const data = await res.json();
+        console.log(data);
+        if (res.ok) {
+            return true;
+        } else {
+            return false;
+        }
+    } catch (error) {
+
+    }
 }
 
 const checkIfUsernameExists = async (username) => {
@@ -174,6 +194,29 @@ const greetUser = async (html) => {
     html.innerText = `Welcome ${usr.others.username}`;
 }
 
+const getGameSearchingUsers = async (id) => {
+    try {
+        const res = await fetch(`/api/users/get-searchingUsers/${id}`, {
+            method: "GET",
+            credentials: "include"
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            console.log("✅ Success:", data);
+            return data;
+        } else {
+            console.warn("⚠️ Request failed with status:", res.status, res.statusText);
+            return data;
+        }
+    } catch (error) {
+        console.error("❌ Fetch error:", error);
+        return null;
+    }
+};
+
+
 
 const registerUser = async (username, password, errorParagraph, redirectPage) => {
     try {
@@ -224,37 +267,37 @@ const getAllActiveGames = async () => {
     }
 }
 
-const getGamesForToday = async() => {
+const getGamesForToday = async () => {
     try {
         const res = await fetch('api/games/getGamesForToday', {
-            method:"GET",
-            headers: {"Content-Type": "application/json"},
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
             credentials: "include"
 
         });
 
         const data = await res.json();
-        if(res.status == 200){
+        if (res.status == 200) {
             console.log(data);
             return data;
-        }else {
+        } else {
             console.log("Couldnt get games for today");
         }
-    }catch(error){
+    } catch (error) {
         console.log(error);
     }
 }
 
 function getTitleByELO(elo) {
-  if (elo < 400) return "Novice";
-  if (elo < 1000) return "Casual";
-  if (elo < 1400) return "Intermediate";
-  if (elo < 1700) return "Advanced";
-  if (elo < 2000) return "Expert";
-  if (elo < 2200) return "Candidate Master";
-  if (elo < 2400) return "Master";
-  if (elo < 2600) return "International Master";
-  return "Grandmaster";
+    if (elo < 400) return "Novice";
+    if (elo < 1000) return "Casual";
+    if (elo < 1400) return "Intermediate";
+    if (elo < 1700) return "Advanced";
+    if (elo < 2000) return "Expert";
+    if (elo < 2200) return "Candidate Master";
+    if (elo < 2400) return "Master";
+    if (elo < 2600) return "International Master";
+    return "Grandmaster";
 }
 
 
@@ -276,21 +319,21 @@ const fetchAllActivePlayers = async () => {
 }
 
 
-const getPlayerById = async(id) => {
+const getPlayerById = async (id) => {
     try {
-        const res = await fetch(`api/users/${id}`, {
-            method:"GET",
+        const res = await fetch(`api/users/by-id/${id}`, {
+            method: "GET",
             credentials: "include"
         });
-        if(res.status == 200){
+        if (res.status == 200) {
             const data = await res.json();
             console.log(data);
             return data;
-        }else {
+        } else {
             console.log("Failed fetching");
         }
 
-    }catch(error){
+    } catch (error) {
         console.log("Failed fetching: ", error);
     }
 }
@@ -343,7 +386,24 @@ const refreshExpiry = (key, ttl) => {
     localStorage.setItem(key, JSON.stringify(newItem));
 }
 
+
+const startTimer = (duration, display) => {
+    var timer =duration,minutes, seconds;
+    setInterval(() => {
+        minutes = parseInt(timer / 60, 10);
+        seconds = parseInt(timer % 60,10);
+        minutes =minutes < 10 ? "0" + minutes: minutes;
+        seconds = seconds < 10? "0" + seconds: seconds;
+
+        display.textContent = minutes + ":" + seconds;
+
+        if(--timer < 0){
+            timer = duration;
+        }
+    }, 1000)
+}
+
 export {
-    extractAndSet,getTitleByELO, refreshExpiry, setwithExpiry, getwithExpiry, getPlayerById,fetchUserINfo, greetUser, createGuestUser, fetchAllActivePlayers,
-    checkIfUsernameExists, checkSession, registerUser, setProperButtons, generateGuestName,openModalOverlay,pageAuthentication,closeModalOverlay,getGamesForToday
+    extractAndSet, startTimer,getGameSearchingUsers,getTitleByELO, updateUserGameSearchState, refreshExpiry, setwithExpiry, getwithExpiry, getPlayerById, fetchUserINfo, greetUser, createGuestUser, fetchAllActivePlayers,
+    checkIfUsernameExists, checkSession, registerUser, setProperButtons, generateGuestName, openModalOverlay, pageAuthentication, closeModalOverlay, getGamesForToday
 };

@@ -8,7 +8,7 @@ const games = require("./routes/games");
 const session = require('express-session');
 const PORT = process.env.PORT || 5500;
 
-const {Server} = require('socket.io');
+const { Server } = require('socket.io');
 const { createServer } = require('http');
 const httpServer = createServer(app);
 const io = new Server(httpServer);
@@ -28,13 +28,82 @@ app.use(session({
 io.on('connection', (socket) => {
     console.log('New socket connected:', socket.id);
 
-
-    socket.on('joinGame', (roomId) => {
-        socket.join(roomId);
-        console.log(`Socket ${socket.id} joined game room ${roomId}`);
+    // 1. Invite someone to a game \
+    socket.on('send-invite', ({ toSocketId, from }) => {
+        io.to(toSocketId).emit('receive-ivite', { from, fromSocketId: socket.id });
     })
-    socket.on('move', ({roomId,from,toString,promotion}) => {
-        socket.to(roomId).emit('opponentMove', {from,to,promotion});
+
+    // 2. Accept Invite
+    socket.on('accept-invite', ({ toSocketId, roomId }) => {
+        socket.join(roomId);
+        io.to(toSocketId).emit('invite-accepted', { roomId });
+        io.to(toSocketId).socketsJoin(roomId); // mae both sockets join
+    })
+
+    // 3. decline invite
+    socket.on('decline-invite', ({ toSocketId }) => {
+        io.to(toSocketId).emit('invite-declined');
+    })
+    // need to fetch current waiting list
+    const waiting_players = new Map();
+    socket.on('find-game', async (userId) => {
+        // UPDATE DB
+
+        
+        waiting_players.set(userId, socket);
+
+        // try to matcvh 
+        if (waiting_players.size >= 2) {
+            const [p1Id, p2Id] = [...waiting_players.keys()];
+            const p1socket = waiting_players.get(p1Id);
+            const p2socket = waiting_players.get(p2Id);
+
+            const roomdId = `${p1Id}-${p2Id}`;
+            p1socket.join(roomdId);
+            p2socket.join(roomdId);
+
+            p1socket.emit('game-started', { roomdId,opponentId:p2Id, color: 'black',timer:true });
+            p2socket.emit('game-started', { roomdId, opponentId:p1Id,color: 'white', timer:false });
+
+            // UPDATE DB
+
+            waiting_players.delete(p1Id);
+            waiting_players.delete(p2Id);
+        }
+    })
+    const startGameStatus = new Map();
+    socket.on('start-game', ({roomId}) => {
+        if(!startGameStatus.has(roomId)){
+            startGameStatus.set(roomId, new Set());
+        }
+
+
+        const started = startGameStatus.get(roomId);
+        started.add(socket.id);
+
+        if(started.size === 2){
+            io.to(roomId).emit('game-ready');
+            startGameStatus.delete(roomId);
+        }
+    })
+
+    socket.on('disconnect', () => {
+        for(const [userId,s] of waiting_players.entries()){
+            if(s === socket){
+                waiting_players.delete(userId);
+                // UPDATE DB
+                break;
+            }
+        }
+    });
+
+
+    socket.on('move', ({ roomId, from, to }) => {
+        socket.to(roomId).emit('opponentMove', { from, to });
+    })
+
+    socket.on('resign', ({ roomId, reason }) => {
+        io.to(roomId).emit('game-ended', { reason });
     })
 
     socket.on('disconnect', () => {
@@ -46,13 +115,13 @@ io.on('connection', (socket) => {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../client')));
 
-app.use(express.urlencoded({extended:true}));
+app.use(express.urlencoded({ extended: true }));
 app.use(cors());
-app.use('/api/users',users);
-app.use('/api/games',games);
+app.use('/api/users', users);
+app.use('/api/games', games);
 app.use('/', pages);
 
-app.get("*", (req,res) => {
+app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, '../client/index.html'));
 })
 httpServer.listen(3000, () => {
@@ -62,7 +131,7 @@ httpServer.listen(3000, () => {
 
 // const io = require('socket.io')(3000, {
 //     cors: {
-//         origin:"*"   
+//         origin:"*"
 //     }
 // })
 

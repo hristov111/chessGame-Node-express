@@ -10,7 +10,9 @@ const pageConfig = {
         src: "/pages/mainPaths",
         navbar: "main-navbar",
         scripts: ["/scripts/main-page-GAME-READY.js", "/scripts/chess_script.js"],
-        styles: ["/styles/partials/modal-choose.css","/styles/partials/main-nav-VERTICAL.css", "/styles/chess-style.css", "/styles/main-GAME-READY.css","/styles/popupprofile.css"],
+        styles: ["/styles/partials/modal-choose.css", "/styles/partials/main-nav-VERTICAL.css", 
+            "/styles/chess-style.css"
+            , "/styles/main-GAME-READY.css", "/styles/popupprofile.css"],
     },
     login: {
         src: "/pages/mainPaths",
@@ -37,7 +39,7 @@ const pageConfig = {
         styles: ["/styles/registerPaths/loginInfo.css"],
     },
 
-    
+
     "main-navbar": {
         src: "/pages/partials/main-navbar.html",
         scripts: ["/scripts/main-navbar.js"],
@@ -56,7 +58,7 @@ const pageConfig = {
 }
 let navbar = document.querySelector('.navbar');
 
-const loadscript = (url)  => {
+const loadscript = (url) => {
     const noCacheUrl = `${url}?v=${Date.now()}`;
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
@@ -152,14 +154,59 @@ const navigate = async (page, pagePath = null) => {
     history.pushState(null, '', url);
     await loadPage(fileToLoad, pagePath);
 }
+const socket = io();
 
+const findgame = async(userId) => {
+    socket.emit('find-game', userId);
+
+}
 
 (async () => {
     let container = document.querySelector('.container');
     let app = document.querySelector('.app');
     let footer = document.querySelector('.footer');
 
-    const socket = io();
+    const sendInvite = (opponentId) => {
+        socket.emit('send-invite', { opponentId, from: socket.id });
+    }
+    socket.on('connect', () => {
+    })
+
+    socket.on("receive-invite", ({from, fromSocketId}) => {
+        const accpet = confirm(`Player ${from} invited you to a game. Accept or not`);
+        if(accpet){
+            const roomId = `${fromSocketId}_${socket.id}`;
+            socket.emit('accept-invite', {toSocketId: fromSocketId, roomId});
+
+        }else {
+            socket.emit('decline-invite', {toSocketId: fromSocketId});
+
+        }
+    })  
+
+    socket.on('invite-accepted', ({roomId}) => {
+        socket.join(roomId);
+        
+    })
+    socket.on('Invite-declined', () => {
+        // declined invite
+    })
+
+
+    function sendMove(roomId,move){
+        socket.emit('move', {reemid, move});
+    }
+    socket.on('opponent-move', (move) => {
+        console.log(JSON.stringify(move));
+    })
+
+    function resign(roomId){
+        socket.emit('resign', {roomId, reason: "Resignation"});
+    }
+
+    socket.on("game-ended", ({reason}) => {
+        // game ended type shi
+    })
 
     // set the navbar
     // await extractAndSet(navbar, '/pages/partials/main-navbar.html', null, ['/scripts/main-navbar.js']);
@@ -171,4 +218,4 @@ const navigate = async (page, pagePath = null) => {
 
 })();
 
-export { navigate, loadPage, navbar };
+export { navigate, loadPage, navbar ,findgame,socket};

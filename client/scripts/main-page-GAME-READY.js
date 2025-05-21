@@ -1,7 +1,7 @@
 // here will be the whole logic for the game itself
-import { checkSession, extractAndSet, setProperButtons } from "/scripts/utils/utils.js";
+import { checkSession, extractAndSet, setProperButtons,startTimer, updateUserGameSearchState, getGameSearchingUsers } from "/scripts/utils/utils.js";
 import { fetchAllActivePlayers, pageAuthentication, getGamesForToday, getPlayerById } from "/scripts/utils/utils.js";
-
+import { findgame, socket } from "./router.js";
 
 /**if(user_fetch.status == 401){
         return {
@@ -15,6 +15,7 @@ import { fetchAllActivePlayers, pageAuthentication, getGamesForToday, getPlayerB
             isGuest:data.isGuest
         } */
 (async () => {
+
     console.log('game-ready')
 
     const user = await pageAuthentication();
@@ -42,10 +43,32 @@ import { fetchAllActivePlayers, pageAuthentication, getGamesForToday, getPlayerB
         my_name.textContent = JSON.parse(localStorage.getItem("guestUser")).value.guest_name;
     }
     // start game button
-    const start_gameButt = document.querySelector('.start-game');
-    start_gameButt.addEventListener('click', () => {
+    const stopSearching = document.querySelector('.stop-searching');
+    const start_gameButt = document.querySelector('.start-gameButt');
+    const searchModal = document.querySelector('.search-modal-overlay');
+
+    start_gameButt.addEventListener('click', async () => {
         // find someone that is on your level 
+
+        // 1. first check authentication
+        // 2. make 
+        // take local storage
+        // first open screen for searching 
+        searchModal.classList.remove('hide');
+        const user = JSON.parse(localStorage.getItem("guestUser"))
+        // const res = await updateUserGameSearchState(user.value.id,true);
+        // // now search for other players with search state of true
+        // const searchgingGamesUsers = await getGameSearchingUsers(user.value.id);
+        findgame(user.value.id);
+
     })
+    stopSearching.addEventListener('click', async () => {
+        const user = JSON.parse(localStorage.getItem("guestUser"))
+        const res = await updateUserGameSearchState(user.value.id, false);
+
+        searchModal.classList.add('hide');
+    })
+
 
 
     const playerBtn = document.querySelector('.user-btn');
@@ -168,7 +191,7 @@ import { fetchAllActivePlayers, pageAuthentication, getGamesForToday, getPlayerB
                 if (name) name.textContent = player.firstname
                 meta.textContent = player.rank
                 rank.textContent = player.text_rank
-                
+
 
 
                 // make a fetch request for username and .....
@@ -204,23 +227,53 @@ import { fetchAllActivePlayers, pageAuthentication, getGamesForToday, getPlayerB
 
     popUpAddFriend.addEventListener('click', () => {
         const user = JSON.parse(localStorage.getItem("guestUser"));
-        if(user.value.isGuest)return;
-        else{
+        if (user.value.isGuest) return;
+        else {
             // add him as a friend 
         }
     })
 
 
     popUpChallange.addEventListener('click', () => {
-         const user = JSON.parse(localStorage.getItem("guestUser"));
-        if(user.value.isGuest)return;
-        else{
+        const user = JSON.parse(localStorage.getItem("guestUser"));
+        if (user.value.isGuest) return;
+        else {
             // add him send him a challange
         }
     })
 
+    let firstTurn;
+    // SECTION FOR SOCKETS LISTENING 
+    const opponent_pic = document.querySelector('.person img');
+    socket.on('game-started', async ({ roomId, opponentId,color , timer}) => {
+        // need to get information about opponent first and store him in localstorage
+        searchModal.classList.add('hide');
+        const opponent = await getPlayerById(opponentId);
+        localStorage.setItem("guestOpponent",opponent);
+        opponent_name.textContent = opponent.username;
+        if(opponent.profile_picture) opponent_pic.src = opponent.profile_picture;
+        // display the board
+        firstTurn = timer;
+        socket.emit('start-game', roomId);
 
+    });
 
+    socket.on('game-ready', async () => {
+        // here we know that both users are ready
+        // check if timer is your and if it is start it
+        if(firstTurn){
+            // start timer
+            // set your timer to start
+            const myTimer = document.querySelector(".my-time");
+            startTimer(600,myTimer);
+        }else {
+            // set opponent timer to start
+            // wait 
+            const opponentTimer = document.querySelector(".opponent-time");
+            startTimer(600,opponentTimer);
+        }
+
+    })
 
 
 })();
