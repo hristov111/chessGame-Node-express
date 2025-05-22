@@ -387,9 +387,9 @@ const refreshExpiry = (key, ttl) => {
 }
 
 
-const startTimer = (duration, display) => {
+const startTimer = (duration, display, onEnd = () => {}) => {
     var timer =duration,minutes, seconds;
-    setInterval(() => {
+    const interval = setInterval(() => {
         minutes = parseInt(timer / 60, 10);
         seconds = parseInt(timer % 60,10);
         minutes =minutes < 10 ? "0" + minutes: minutes;
@@ -398,7 +398,8 @@ const startTimer = (duration, display) => {
         display.textContent = minutes + ":" + seconds;
 
         if(--timer < 0){
-            timer = duration;
+            clearInterval(interval);
+            onEnd();
         }
     }, 1000)
 }

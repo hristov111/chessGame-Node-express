@@ -6,10 +6,17 @@
 // })
 
 import { socket } from "./router.js";
+import { startTimer } from "/scripts/utils/utils.js"
 
 
 (async () => {
     let table = [];
+    let turn;
+    let GLmy_color;
+    let GLopponent_color;
+    let GLroomId;
+    let current_Timer;
+
 
     console.log('Hello');
 
@@ -431,9 +438,12 @@ import { socket } from "./router.js";
         })
         last_moves = [];
     }
-    function GAME() {
+    function GAME(opponent_color, my_color) {
+        let board = document.querySelector('.ChessBoard');
+        board.innerHTML = '';
+        table = [];
         createChessBoard();
-        alignStart();
+        alignStart(opponent_color, my_color);
         let square_buttons = document.querySelectorAll('.square');
         square_buttonsArray = Array.from(square_buttons);
         clicked = false;
@@ -444,7 +454,7 @@ import { socket } from "./router.js";
                 const figure = Figure.getElementFromTable(Number(button.classList[1]));
                 console.log(table);
                 // check if the user has clicked on a occupied space
-                if (figure.type !== "" && figure.color === "white") {
+                if (figure.type !== "" && figure.color === my_color && turn == my_color) {
                     // setting click to true
                     clicked = true;
                     // if we have clicked an already clicked figure
@@ -521,26 +531,19 @@ import { socket } from "./router.js";
                 if ((row + col) % 2 === 0) {
                     square.classList.add('white');
                 } else square.classList.add('black');
-
+                if (!turn) {
+                    square.disabled = true;
+                }
                 board.appendChild(square);
                 id++;
 
             }
         }
     }
-
-    function alignStart() {
-        // table.push(Figure.create("queen", "white", 28));
-        // table.push(Figure.create("bishop", "black", 20));
-
-        table.push(new Queen("black", 3));
-        //-------------------------------------------------
-        console.log(table)
-        table.push(new King("black", 4));
-        table.push(new Queen("white", 59));
-        table.push(new King("white", 60));
-
-        let elements = ["rook", "horse", "bishop"]
+    let elements = ["rook", "horse", "bishop"]
+    const align_opponnet = (color) => {
+        table.push(new Queen(color, 3));
+        table.push(new King(color, 4));
         for (let i = 0, j = 7; i < elements.length && j > 4; i++, j--) {
             let pieceClass;
 
@@ -555,9 +558,17 @@ import { socket } from "./router.js";
                     pieceClass = Horse;
                     break;
             }
-            table.push(new pieceClass("black", i));
-            table.push(new pieceClass("black", j));
+            table.push(new pieceClass(color, i));
+            table.push(new pieceClass(color, j));
         }
+        for (let i = 8; i < 16; ++i) {
+            table.push(new Pawn(color, i));
+        }
+
+    }
+    const align_me = (color) => {
+        table.push(new Queen(color, 59));
+        table.push(new King(color, 60));
         let curr = 0;
         for (let i = 56, j = 63; i < 59, j > 60; i++, j--) {
             let pieceClass;
@@ -573,28 +584,64 @@ import { socket } from "./router.js";
                     pieceClass = Horse;
                     break;
             }
-            table.push(new pieceClass("white", i));
-            table.push(new pieceClass("white", j));
+            table.push(new pieceClass(color, i));
+            table.push(new pieceClass(color, j));
             curr++;
         }
-        for (let i = 8; i < 16; ++i) {
-            table.push(new Pawn("black", i));
-        }
         for (let i = 48; i < 56; i++) {
-            table.push(new Pawn("white", i));
+            table.push(new Pawn(color, i));
         }
+    }
 
-        // need to fill places
+    function alignStart(opponent_color, my_color) {
+        align_opponnet(opponent_color);
         for (let i = 16; i < 48; i++) {
             table.push(new Figure("", "", i));
         }
-        // console.log(table);
+        align_me(my_color);
 
-        // here i need to update the table
 
     }
+    const setNextTurn = () => {
+        if(current_Timer.classList.contains("opponent-timer")){
+            current_Timer = document.querySelector('.my-time');
+        }else {
+            current_Timer = document.querySelector('.opponent-time');
+        }
+        turn == "black"?"white":"black";
+    }
+    const timerEnds = () => {
+        setNextTurn
+        startTimer(600, current_Timer,timerEnds);
+    }
+    socket.on('game-ready', async ({ roomId, color, opponent_color, timer }) => {
+        // here we know that both users are ready
+        // check if timer is your and if it is start it
+        if (timer) {
+            // start timer
+            // set your timer to start
+            const myTimer = document.querySelector(".my-time");
+            turn = color;
+            current_Timer = myTimer;
+            startTimer(600, myTimer, timerEnds);
+            GLmy_color = color;
+        } else {
+            // set opponent timer to start
+            // wait 
+            const opponentTimer = document.querySelector(".opponent-time");
+            turn = opponent_color;
+            current_Timer = opponentTimer;
+            startTimer(600, opponentTimer, timerEnds);
+            GLopponent_color = opponent_color
+        }
+        GLroomId = roomId;
+        GAME(opponent_color, color);
 
-    GAME();
+    })
+    if (!turn) {
+        createChessBoard();
+        alignStart("black", "white");
+    }
 
 })();
 

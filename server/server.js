@@ -25,6 +25,8 @@ app.use(session({
     }
 }));
 
+let chessGameState = {};
+
 io.on('connection', (socket) => {
     console.log('New socket connected:', socket.id);
 
@@ -44,6 +46,14 @@ io.on('connection', (socket) => {
     socket.on('decline-invite', ({ toSocketId }) => {
         io.to(toSocketId).emit('invite-declined');
     })
+
+    socket.on("rejoin-room", ({roomId, userId}) => {
+        const game = chessGameState[roomId];
+        if(game){
+            socket.join(roomId);
+            socket.emit("rejoined", {...game});
+        }
+    })
     // need to fetch current waiting list
     const waiting_players = new Map();
     socket.on('find-game', async (userId) => {
@@ -62,8 +72,8 @@ io.on('connection', (socket) => {
             p1socket.join(roomdId);
             p2socket.join(roomdId);
 
-            p1socket.emit('game-started', { roomdId,opponentId:p2Id, color: 'black',timer:true });
-            p2socket.emit('game-started', { roomdId, opponentId:p1Id,color: 'white', timer:false });
+            p1socket.emit('game-started', { roomdId,opponentId:p2Id, color: 'black',opponent_color:"white",timer:true });
+            p2socket.emit('game-started', { roomdId, opponentId:p1Id,color: 'white',opponent_color:"black", timer:false });
 
             // UPDATE DB
 
@@ -72,7 +82,7 @@ io.on('connection', (socket) => {
         }
     })
     const startGameStatus = new Map();
-    socket.on('start-game', ({roomId}) => {
+    socket.on('start-game', ({roomId,color,opponent_color,timer}) => {
         if(!startGameStatus.has(roomId)){
             startGameStatus.set(roomId, new Set());
         }
@@ -82,7 +92,7 @@ io.on('connection', (socket) => {
         started.add(socket.id);
 
         if(started.size === 2){
-            io.to(roomId).emit('game-ready');
+            io.to(roomId).emit('game-ready', {roomId,color,opponent_color,timer});
             startGameStatus.delete(roomId);
         }
     })

@@ -242,38 +242,25 @@ import { findgame, socket } from "./router.js";
         }
     })
 
-    let firstTurn;
     // SECTION FOR SOCKETS LISTENING 
     const opponent_pic = document.querySelector('.person img');
-    socket.on('game-started', async ({ roomId, opponentId,color , timer}) => {
+    socket.on('game-started', async ({ roomId, opponentId,color ,opponent_color, timer}) => {
         // need to get information about opponent first and store him in localstorage
         searchModal.classList.add('hide');
         const opponent = await getPlayerById(opponentId);
         localStorage.setItem("guestOpponent",opponent);
+        localStorage.setItem("roomId", roomId);
         opponent_name.textContent = opponent.username;
         if(opponent.profile_picture) opponent_pic.src = opponent.profile_picture;
         // display the board
         firstTurn = timer;
-        socket.emit('start-game', roomId);
+        socket.emit('start-game', (roomId,color,opponent_color,timer));
 
     });
-
-    socket.on('game-ready', async () => {
-        // here we know that both users are ready
-        // check if timer is your and if it is start it
-        if(firstTurn){
-            // start timer
-            // set your timer to start
-            const myTimer = document.querySelector(".my-time");
-            startTimer(600,myTimer);
-        }else {
-            // set opponent timer to start
-            // wait 
-            const opponentTimer = document.querySelector(".opponent-time");
-            startTimer(600,opponentTimer);
-        }
-
+    socket.on("rejoined", ({game}) => {
+        // here set everything 
     })
+
 
 
 })();
