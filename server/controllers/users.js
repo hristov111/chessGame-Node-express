@@ -141,7 +141,9 @@ const getUserByIdFunc = async (req,res) => {
             rank:user.ranking,
             losses:user.total_losses,
             online:user.is_online,
-            playing:user.is_playing
+            playing:user.is_playing,
+            email:user.email,
+            bio:user.biography
         }   
         return res.status(200).json(details);
     }catch(error){
@@ -154,12 +156,17 @@ const getUserByUsernameFunc = async (req,res) => {
     try {
         const {username,password} = req.body;
 
+        if(!username || !password){
+            return res.status(400).json({msg: "Username and password are required"});
+        }
+
         const user = await getUserByUsername(username);
-        if(user == undefined) return res.status(404).json({msg:`There isn't a person with this username: ${username}`});
+        if(!user) return res.status(404).json({msg:`There isn't a person with this username: ${username}`});
         if( await verifyPassword(password,user.password_hash)){
             req.session.user ={
                 id:user.id,
                 username:username,
+                profile_pic:user.profile_picture,
                 isAdmin:user.isAdmin,
                 isGuest:false,
             };
@@ -175,23 +182,23 @@ const getUserByUsernameFunc = async (req,res) => {
 const createUserFunc = async (req,res) => {
     try{
        const {username,password} = req.body;
-       console.log(username,password);
-       const user = await getUserByUsername(username);
-       console.log(user);
+       const existingUser = await getUserByUsername(username);
        // check if user exists
-       if(user == undefined){
+       console.log(existingUser)
+       if(!existingUser){
         // if we are here this means we didnt find any user with this username so everything is okay
         // firstly we need to hash the password given
         const password_hash = await hashPassword(password);
         const id = await createUser(username,password_hash);
-
+        console.log(id);
         req.session.user ={
-            id:user.id,
+            id:id,
             username:username,
             isAdmin:false,
             isGuest:false,
         };
-        return res.status(201).json({username,password});
+        console.log(req.session);
+        return res.status(201).json({username});
        }
        res.status(409).json({msg:`The username is already in use: ${username}`});
     }catch(error){

@@ -1,5 +1,6 @@
 import { isEmailValid, isPasswordValid, isNameValid } from "/scripts/utils/validation.js";
 import { registerUser } from "/scripts/utils/utils.js";
+import { navigate } from "../router.js";
 
 (() => {
     const continueBut = document.querySelector('continue');
@@ -12,10 +13,10 @@ import { registerUser } from "/scripts/utils/utils.js";
 
     const setText = (text, el) => {
         el.style.display = 'block';
-        el.textContent = text;
+        el.innerText = text;
     }
     const removeText = (el) => {
-        el.textContent = '';
+        el.innerText = '';
         el.style.display = 'none';
     }
     form.addEventListener('submit', async (e) => {
@@ -34,10 +35,15 @@ import { registerUser } from "/scripts/utils/utils.js";
             const nameError = isNameValid(usernameValue);
             if (nameError) {
                 // valid name
+                setText(nameError,nameErrorElement);
                 const passError = isPasswordValid(passwordValue);
-                if (passError) {
+                if (passError === true) {
+                    setText("✅ Password okay", passwordErrorElement);
                     // we can now call register
-                    await registerUser(usernameValue, passwordValue, passwordErrorElement, '/game-panel');
+                    passwordErrorElement.innerText = '';
+                    nameErrorElement.innerText = ''
+                    const res = await registerUser(usernameValue, passwordValue, passwordErrorElement, '/game-panel');
+                    if(res) await navigate('login');
                 } else {
                     setText(passError, passwordErrorElement);
 

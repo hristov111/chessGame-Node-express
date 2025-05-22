@@ -1,3 +1,4 @@
+import { navigate } from "./router.js";
 
 
 (() => {
@@ -40,7 +41,7 @@
                 setErrorSuccessMessage("❌ Wrong password", passError, () => () => clearErrorSuccessMessage(userError));
             } else if (response.status == 200) {
                 setErrorSuccessMessage("✅ Success", userError);
-                window.location.href = "/home";
+                navigate('main');
             } else {
                 console.log("There was an intyernal error. Please refresh and try again");
             }

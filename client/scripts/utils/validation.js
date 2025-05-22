@@ -41,11 +41,12 @@ function isUsernameValid(username, result = {}){
     if(Object.keys(result).length === 0) return paragraph;
     result.checked = usernameChecked;
     result.paragraph = paragraph;
+    return result;
 }
 
 function isPasswordValid(password, res = {}){
     let totalTextArray = password.split('');
-    const paragraph = "Password must be between 8 and 20 characters,atleast one lower case char,one upper case char,one number,one special char";
+    const paragraph = "Password must be between 8 and 20 characters,\natleast one lower case char,\none upper case char,\none number,\none special char";
     if(password ==='') return paragraph;
     if(totalTextArray.length > 20 || totalTextArray.length < 8){
         return paragraph;
@@ -83,14 +84,41 @@ function isPasswordValid(password, res = {}){
 const isEmailValid = (email) =>{
     if(email === '')return '';
     const pattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
-    return pattern?"✅ Good email!":"❌ Bad email!";
+    if(pattern){
+        return {
+            msg: "✅ Good email!",
+            passed: true
+        }
+    }else {
+        return {
+            msg: "❌ Bad email!",
+            passed:false
+        }
+    }
 }
 
 const isNameValid  = (name) => {
     // no numbers or speical symbols, only letters
     if(name === '')return '';
     let pattern = /^[a-zA-Z0-9]+$/.test(name);
-    return pattern?name.length <20?"✅ Valid Name": "❌ Name too long!":"❌ Name not valid!"
+    if(pattern){
+        if(name.length < 20){
+            return {
+                msg: "✅ Valid Name",
+                passed: true
+            }
+        }else {
+            return {
+                msg: "❌ Name too long!",
+                passed:false,
+            }
+        }
+    }else {
+        return {
+            msg: "❌ Name not valid!",
+            passed:false,
+        }
+    }
     
 }
 
@@ -100,7 +128,8 @@ const isRepeatedPasswordValid = (pass1, REpassword) => {
 }
 
 const isBioValid = (bio) => {
-    return bio.length > 50? "❌ Bio too long!": "✅ Valid Bio!";
+    
+    return bio.length > 50? {msg:"❌ Bio too long!",passed:false}:{msg:"✅ Valid Bio!",passed:true};
 }
 
 

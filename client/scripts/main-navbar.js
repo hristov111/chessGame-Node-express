@@ -31,6 +31,7 @@ import { navigate, loadPage, navbar } from "./router.js";
     if (navProfile) {
         navProfile.addEventListener('click', async (e) => {
             e.preventDefault();
+            navigate('profile');
         })
     }
 

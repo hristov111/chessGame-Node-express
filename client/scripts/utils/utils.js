@@ -2,11 +2,16 @@ import { setErrorText } from "./validation.js";
 
 
 
-const setProperButtons = async (user) => {
+const setProperButtons = async (user, sessionUser) => {
     let userMenu = document.querySelector('#user-menu');
     let guestMenu = document.querySelector('#guest-menu');
+    let username = document.querySelector('#user-name');
+    let profile_pic = document.querySelector('.dropbtn img');
     if (user == 'user') {
         userMenu.style.display = 'block';
+        username.innerText = sessionUser.guest_name
+        if (sessionUser.profile_pic) profile_pic.src = sessionUser.profile_pic;
+        else profile_pic.src = '/images/profile.png'
     } else {
         guestMenu.style.display = 'flex';
     }
@@ -36,17 +41,26 @@ const pageAuthentication = async () => {
     let user = undefined;
     console.log('pageAuth');
     const res = await checkSession();
+    const userInLocalStorage = JSON.parse(localStorage.getItem("guestUser"));
     // session has expired now get to log in sign up or play as guest   
-    if (!res.session) openModalOverlay("sessionCheck", modalOverlay);
-    else if (res.session && !localStorage.getItem("guestUser")) {
-        // guest user was removed, add him back
-        setwithExpiry("guestUser", { id: res.id, guest_name: res.username, isAdmin: false, isGuest: res.isGuest }, 2 * 24 * 60 * 60 * 1000);
+    if (!res?.session) {
+        openModalOverlay("sessionCheck", modalOverlay);
+    } else {
+        const sessionUser = {
+            id: res.id,
+            profile_pic: res.profile_pic,
+            guest_name: res.username,
+            isAdmin: res.isAdmin,
+            isGuest: res.isGuest
+        }
+        //Sync localStorage with session
+        if (!userInLocalStorage || userInLocalStorage.guest_name !== res.username) {
+            setwithExpiry("guestUser", sessionUser, 2 * 24 * 60 * 60 * 1000); // 2 days in ms
+        }
+
+        user = res.isGuest ? "guest" : "user";
+        await setProperButtons(user, sessionUser);
     }
-    else if (res.session && res.isGuest) {
-        user = "guest";
-    }
-    else user = 'user';
-    await setProperButtons(user);
     return user;
 }
 
@@ -75,23 +89,16 @@ const extractAndSet = async (html, path, callback = null, scripts = []) => {
 
 
 const fetchUserINfo = async () => {
-    if (!localStorage.getItem("user")) {
-        try {
-            const user_fetch = await fetch("/api/users/me", {
-                method: "GET",
-                credentials: "include",
-            });
-            const { username } = await user_fetch.json();
-            if (username == undefined) return;
-            const fetch_all = await fetch(`/api/users/${username}`);
-            const end_result = await fetch_all.json();
-            sessionStorage.setItem("user", JSON.stringify(end_result));
-            return end_result;
+    try {
+        const user = JSON.parse(localStorage.getItem("guestUser"))
+        const fetch_all = await fetch(`/api/users/${username}`);
+        const end_result = await fetch_all.json();
+        sessionStorage.setItem("user", JSON.stringify(end_result));
+        return end_result;
 
-        } catch (error) {
-            console.log("Error:" + error);
-        }
-    } else return JSON.parse(localStorage.getItem("user"));
+    } catch (error) {
+        console.log("Error:" + error);
+    }
 
 }
 
@@ -234,9 +241,8 @@ const registerUser = async (username, password, errorParagraph, redirectPage) =>
         } else if (response.status === 201) {
             // username is created
             setErrorText("✅ User successfully created", errorParagraph);
+            return true;
             // now i need to redirect him to the main page here
-            window.location.href = redirectPage;
-
         } else {
             // something went wrong;
             setErrorText("❌ Problem with the server. Please reload tge page", errorParagraph);
@@ -244,8 +250,9 @@ const registerUser = async (username, password, errorParagraph, redirectPage) =>
         }
 
     } catch (error) {
-        setErrorText(`❌ Problem with the server. Please reload the page: Error is ${error}`, errorParagraph);
+        setErrorText(`❌ Problem with the server.\n Please reload the page:\n Error is ${error}`, errorParagraph);
     }
+    return false;
 }
 
 const getAllActiveGames = async () => {
@@ -387,17 +394,17 @@ const refreshExpiry = (key, ttl) => {
 }
 
 
-const startTimer = (duration, display, onEnd = () => {}) => {
-    var timer =duration,minutes, seconds;
+const startTimer = (duration, display, onEnd = () => { }) => {
+    var timer = duration, minutes, seconds;
     const interval = setInterval(() => {
         minutes = parseInt(timer / 60, 10);
-        seconds = parseInt(timer % 60,10);
-        minutes =minutes < 10 ? "0" + minutes: minutes;
-        seconds = seconds < 10? "0" + seconds: seconds;
+        seconds = parseInt(timer % 60, 10);
+        minutes = minutes < 10 ? "0" + minutes : minutes;
+        seconds = seconds < 10 ? "0" + seconds : seconds;
 
         display.textContent = minutes + ":" + seconds;
 
-        if(--timer < 0){
+        if (--timer < 0) {
             clearInterval(interval);
             onEnd();
         }
@@ -405,6 +412,6 @@ const startTimer = (duration, display, onEnd = () => {}) => {
 }
 
 export {
-    extractAndSet, startTimer,getGameSearchingUsers,getTitleByELO, updateUserGameSearchState, refreshExpiry, setwithExpiry, getwithExpiry, getPlayerById, fetchUserINfo, greetUser, createGuestUser, fetchAllActivePlayers,
+    extractAndSet, startTimer, getGameSearchingUsers, getTitleByELO, updateUserGameSearchState, refreshExpiry, setwithExpiry, getwithExpiry, getPlayerById, fetchUserINfo, greetUser, createGuestUser, fetchAllActivePlayers,
     checkIfUsernameExists, checkSession, registerUser, setProperButtons, generateGuestName, openModalOverlay, pageAuthentication, closeModalOverlay, getGamesForToday
 };

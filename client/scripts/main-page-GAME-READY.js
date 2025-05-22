@@ -241,7 +241,7 @@ import { findgame, socket } from "./router.js";
             // add him send him a challange
         }
     })
-
+    let in_game = false;
     // SECTION FOR SOCKETS LISTENING 
     const opponent_pic = document.querySelector('.person img');
     socket.on('game-started', async ({ roomId, opponentId,color ,opponent_color, timer}) => {
@@ -254,14 +254,34 @@ import { findgame, socket } from "./router.js";
         if(opponent.profile_picture) opponent_pic.src = opponent.profile_picture;
         // display the board
         firstTurn = timer;
+        in_game = true;
         socket.emit('start-game', (roomId,color,opponent_color,timer));
 
     });
+    if(in_game && sessionStorage.getItem("reloaded")){
+        const roomId = JSON.parse(localStorage.getItem("roomId"));
+        const user = JSON.parse(localStorage.getItem("guestUser"));
+        // if there is localstorage of the roomId get it and rejoin
+        if(roomId){
+            socket.emit("rejoin-room", (roomId));
+        }else {
+            socket.emit("get-roomId",(user.value.id));
+        }
+        sessionStorage.removeItem("reloaded");
+    }
     socket.on("rejoined", ({game}) => {
         // here set everything 
     })
 
+    socket.on("roomId", ({roomId}) => {
+        localStorage.setItem("roomId",roomId);
+        socket.emit("rejoin-room", (roomId));
+    })
 
+    // on reload set a localstorage variable
+    window.addEventListener('beforeunload', () => {
+        sessionStorage.setItem("reloaded", "true");
+    })
 
 })();
 // get the navbar header

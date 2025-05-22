@@ -65,8 +65,6 @@ router.route("/updateGameSearchState").patch(updateGameSearchState);
 router.route("/updateplayers").patch(updateAllActiveStateFunc);
 router.route("/get-searchingUsers/:id").get(getGameSearchingUsers);
 router.route("/by-id/:id").get(getUserByIdFunc)
-router.route("/by-username/:user").get(getEverythingForUser);
-
 
 
 module.exports = router;

@@ -19,17 +19,36 @@ app.use(session({
     resave: false,            // don't resave unmodified sessions
     rolling: true,            // refresh cookie expiration on each request
     cookie: {
-        maxAge: 30 * 60 * 1000, // 30 minutes
+        maxAge: 2 * 24 * 60 * 60 * 1000, // 2 days
         httpOnly: true,         // protect from client-side JS
         secure: false           // set to true if using HTTPS
     }
 }));
+// array full of rooms
+let chessGameState = new Map();
+const connectedUsers = new Map();
 
-let chessGameState = {};
+io.use((socket, next) => {
+    const userId = socket.handshake.query.userId;
+    if(userId === "undefined"){
+        socket.disconnect();
+        return next(new Error("Not authenticated"));
 
+    }
+    next();
+})
 io.on('connection', (socket) => {
     console.log('New socket connected:', socket.id);
+    const userId = socket.handshake.query.userId;
 
+    if(connectedUsers.has(userId)){
+        const oldSocket = connectedUsers.get(userId);
+        oldSocket.disconnect();
+        connectedUsers.set(userId, socket);
+        console.log(`Person ${userId} reconnected witn new socket ${socket.id}`);
+        return;
+    }
+    connectedUsers.set(userId,socket);
     // 1. Invite someone to a game \
     socket.on('send-invite', ({ toSocketId, from }) => {
         io.to(toSocketId).emit('receive-ivite', { from, fromSocketId: socket.id });
@@ -45,6 +64,15 @@ io.on('connection', (socket) => {
     // 3. decline invite
     socket.on('decline-invite', ({ toSocketId }) => {
         io.to(toSocketId).emit('invite-declined');
+    })
+
+    socket.on("get-roomId", ({userId}) => {
+        for(let [key,value] of chessGameState){
+            if(value.player1 === userId || value.player2 === userId){
+                socket.emit("roomId", ({key}));
+            }
+        }
+        socket.emit("roomId", (null));
     })
 
     socket.on("rejoin-room", ({roomId, userId}) => {
@@ -71,6 +99,10 @@ io.on('connection', (socket) => {
             const roomdId = `${p1Id}-${p2Id}`;
             p1socket.join(roomdId);
             p2socket.join(roomdId);
+            chessGameState.set(roomdId, {
+                player1:p1Id,
+                player2:p2Id,
+            }),
 
             p1socket.emit('game-started', { roomdId,opponentId:p2Id, color: 'black',opponent_color:"white",timer:true });
             p2socket.emit('game-started', { roomdId, opponentId:p1Id,color: 'white',opponent_color:"black", timer:false });
@@ -98,6 +130,7 @@ io.on('connection', (socket) => {
     })
 
     socket.on('disconnect', () => {
+        console.log("Socket disconnected", socket.id);
         for(const [userId,s] of waiting_players.entries()){
             if(s === socket){
                 waiting_players.delete(userId);
@@ -116,9 +149,6 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('game-ended', { reason });
     })
 
-    socket.on('disconnect', () => {
-        console.log("Socket disconnected", socket.id);
-    })
 })
 
 

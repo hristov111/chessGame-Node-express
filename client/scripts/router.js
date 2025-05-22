@@ -1,9 +1,15 @@
 const pageConfig = {
+    profile:{
+        src:"/pages/mainPaths",
+        navbar: "main-navbar",
+        scripts: ["/scripts/profile.js"],
+        styles: ["/styles/profile.css","/styles/partials/main-nav.css"]
+    },
     main: {
         src: "/pages/mainPaths",
         navbar: "main-navbar",
         scripts: ["/scripts/main-page.js"],
-        styles: ["/styles/partials/modal-choose.css", "/styles/main.css", "/styles/partials/main-nav.css"]
+        styles: ["/styles/partials/modal-choose.css", "/styles/main.css"]
 
     },
     "game-panel": {
@@ -145,6 +151,10 @@ window.addEventListener('popstate', async (e) => {
 
 // called when thje user click a button or link 
 const navigate = async (page, pagePath = null) => {
+    if(page == 'login'){
+        localStorage.clear();
+        sessionStorage.clear();
+    }
     const [base, query] = page.split('?');
     const params = new URLSearchParams(query);
     const step = params.get("step");
@@ -154,7 +164,16 @@ const navigate = async (page, pagePath = null) => {
     history.pushState(null, '', url);
     await loadPage(fileToLoad, pagePath);
 }
-const socket = io();
+let socket;
+const user = JSON.parse(localStorage.getItem("guestUser"));
+
+if(!sessionStorage.getItem("socket_connected")){
+    socket = io({query: {userId: user?.value?.id}});
+    sessionStorage.setItem("socket_connected", "true");
+    console.log("socket given");
+}else {
+    socket = io({query: {userId: user.value.id}});
+}
 
 const findgame = async(userId) => {
     socket.emit('find-game', userId);
@@ -206,6 +225,11 @@ const findgame = async(userId) => {
 
     socket.on("game-ended", ({reason}) => {
         // game ended type shi
+    })
+
+    socket.on("disconnect", () => {
+        console.log("disconnetced");
+        sessionStorage.removeItem("socket_connected");
     })
 
     // set the navbar
