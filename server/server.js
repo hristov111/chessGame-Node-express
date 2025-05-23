@@ -25,12 +25,52 @@ app.use(session({
     }
 }));
 // array full of rooms
+const startGameStatus = new Map();
+
 let chessGameState = new Map();
 const connectedUsers = new Map();
+const waiting_players = new Map();
+
+const timers = new Map();
+
+
+const startServerTimer = (roomId) => {
+    const timer = {
+        whiteTime:600,
+        blackTime:600,
+        currentTurn: 'white',
+        interval:null,
+    }
+
+
+    timer.interval = setInterval(() => {
+        if(timer.currentTurn === 'white'){
+            timer.whiteTime --;
+        }else {
+            timer.blackTime--;
+        }
+
+        io.to(roomId).emit('timer-update', {
+            whiteTime: timer.whiteTime,
+            blackTime:timer.blackTime,
+        });
+
+
+        if(timer.whiteTime <= 0 || timer.blackTime <= 0){
+            clearInterval(timer.interval);
+            io.to(roomId).emit('game-ended', {
+                reason: 'timeout',
+                lose: timer.whiteTime <= 0? 'white': 'black'
+            });
+            timers.delete(roomId);
+        }
+    },1000);
+    timers.set(roomId,timer);
+}
 
 io.use((socket, next) => {
     const userId = socket.handshake.query.userId;
-    if(userId === "undefined"){
+    if (userId === "undefined") {
         socket.disconnect();
         return next(new Error("Not authenticated"));
 
@@ -38,17 +78,17 @@ io.use((socket, next) => {
     next();
 })
 io.on('connection', (socket) => {
-    console.log('New socket connected:', socket.id);
-    const userId = socket.handshake.query.userId;
+    const userId = socket.handshake.query.Id;
 
-    if(connectedUsers.has(userId)){
+    if (connectedUsers.has(userId)) {
         const oldSocket = connectedUsers.get(userId);
         oldSocket.disconnect();
-        connectedUsers.set(userId, socket);
         console.log(`Person ${userId} reconnected witn new socket ${socket.id}`);
-        return;
+    } else {
+        console.log('New socket connected:', socket.id);
+
     }
-    connectedUsers.set(userId,socket);
+    connectedUsers.set(userId, socket);
     // 1. Invite someone to a game \
     socket.on('send-invite', ({ toSocketId, from }) => {
         io.to(toSocketId).emit('receive-ivite', { from, fromSocketId: socket.id });
@@ -66,28 +106,27 @@ io.on('connection', (socket) => {
         io.to(toSocketId).emit('invite-declined');
     })
 
-    socket.on("get-roomId", ({userId}) => {
-        for(let [key,value] of chessGameState){
-            if(value.player1 === userId || value.player2 === userId){
-                socket.emit("roomId", ({key}));
+    socket.on("get-roomId", ({ userId }) => {
+        for (let [key, value] of chessGameState) {
+            if (value.player1 === userId || value.player2 === userId) {
+                socket.emit("roomId", ({ key }));
             }
         }
         socket.emit("roomId", (null));
     })
 
-    socket.on("rejoin-room", ({roomId, userId}) => {
+    socket.on("rejoin-room", ({ roomId, userId }) => {
         const game = chessGameState[roomId];
-        if(game){
+        if (game) {
             socket.join(roomId);
-            socket.emit("rejoined", {...game});
+            socket.emit("rejoined", { ...game });
         }
     })
     // need to fetch current waiting list
-    const waiting_players = new Map();
-    socket.on('find-game', async (userId) => {
+    socket.on('find-game', async ({ userId }) => {
         // UPDATE DB
 
-        
+        console.log("Player:" + userId + " is searching for a game");
         waiting_players.set(userId, socket);
 
         // try to matcvh 
@@ -95,17 +134,20 @@ io.on('connection', (socket) => {
             const [p1Id, p2Id] = [...waiting_players.keys()];
             const p1socket = waiting_players.get(p1Id);
             const p2socket = waiting_players.get(p2Id);
+            console.log(p1Id, p2Id);
 
-            const roomdId = `${p1Id}-${p2Id}`;
-            p1socket.join(roomdId);
-            p2socket.join(roomdId);
-            chessGameState.set(roomdId, {
-                player1:p1Id,
-                player2:p2Id,
-            }),
+            const roomId = `${p1Id}-${p2Id}`;
+            console.log(roomId);
 
-            p1socket.emit('game-started', { roomdId,opponentId:p2Id, color: 'black',opponent_color:"white",timer:true });
-            p2socket.emit('game-started', { roomdId, opponentId:p1Id,color: 'white',opponent_color:"black", timer:false });
+            p1socket.join(roomId);
+            p2socket.join(roomId);
+            chessGameState.set(roomId, {
+                player1: p1Id,
+                player2: p2Id,
+            });
+
+            p1socket.emit('game-started', { roomId, opponentId: p2Id, color: 'black', opponent_color: "white", timer: true });
+            p2socket.emit('game-started', { roomId, opponentId: p1Id, color: 'white', opponent_color: "black", timer: false });
 
             // UPDATE DB
 
@@ -113,9 +155,8 @@ io.on('connection', (socket) => {
             waiting_players.delete(p2Id);
         }
     })
-    const startGameStatus = new Map();
-    socket.on('start-game', ({roomId,color,opponent_color,timer}) => {
-        if(!startGameStatus.has(roomId)){
+    socket.on('start-game', ({ roomId, opponentId, color, opponent_color, timer }) => {
+        if (!startGameStatus.has(roomId)) {
             startGameStatus.set(roomId, new Set());
         }
 
@@ -123,16 +164,41 @@ io.on('connection', (socket) => {
         const started = startGameStatus.get(roomId);
         started.add(socket.id);
 
-        if(started.size === 2){
-            io.to(roomId).emit('game-ready', {roomId,color,opponent_color,timer});
+
+        if (started.size === 2) {
+            const [socketId1, socketId2] = [...started];
+
+
+            const socket1 = io.sockets.sockets.get(socketId1);
+            const socket2 = io.sockets.sockets.get(socketId2);
+
+
+            if (socket1 && socket2) {
+                socket1.emit('game-ready', {
+                    roomId,
+                    color,
+                    opponent_color,
+                    timer: true
+                });
+
+                socket2.emit('game-ready', {
+                    roomId,
+                    color: opponent_color,
+                    opponent_color: color,
+                    timer: false
+                });
+            }
+
             startGameStatus.delete(roomId);
+            startServerTimer(roomId);
+
         }
     })
 
     socket.on('disconnect', () => {
         console.log("Socket disconnected", socket.id);
-        for(const [userId,s] of waiting_players.entries()){
-            if(s === socket){
+        for (const [userId, s] of waiting_players.entries()) {
+            if (s === socket) {
                 waiting_players.delete(userId);
                 // UPDATE DB
                 break;
@@ -164,8 +230,8 @@ app.use('/', pages);
 app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, '../client/index.html'));
 })
-httpServer.listen(3000, () => {
-    console.log("Server running on http://localhost:3000");
+httpServer.listen(3000, '0.0.0.0', () => {
+    console.log("Server running");
 });
 
 

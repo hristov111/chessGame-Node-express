@@ -1,7 +1,7 @@
 // here will be the whole logic for the game itself
-import { checkSession, extractAndSet, setProperButtons,startTimer, updateUserGameSearchState, getGameSearchingUsers } from "/scripts/utils/utils.js";
+import { checkSession, extractAndSet, setProperButtons, startTimer, updateUserGameSearchState, getGameSearchingUsers } from "/scripts/utils/utils.js";
 import { fetchAllActivePlayers, pageAuthentication, getGamesForToday, getPlayerById } from "/scripts/utils/utils.js";
-import { findgame, socket } from "./router.js";
+import { findGame, socket, initializeSocket } from "./router.js";
 
 /**if(user_fetch.status == 401){
         return {
@@ -19,6 +19,8 @@ import { findgame, socket } from "./router.js";
     console.log('game-ready')
 
     const user = await pageAuthentication();
+    const actualUser = JSON.parse(localStorage.getItem("guestUser"));
+    if (actualUser) initializeSocket(actualUser.value.id);
 
     // actibvve players for today
     const peoplePlaying = document.querySelector('.people-playing');
@@ -48,18 +50,8 @@ import { findgame, socket } from "./router.js";
     const searchModal = document.querySelector('.search-modal-overlay');
 
     start_gameButt.addEventListener('click', async () => {
-        // find someone that is on your level 
-
-        // 1. first check authentication
-        // 2. make 
-        // take local storage
-        // first open screen for searching 
         searchModal.classList.remove('hide');
-        const user = JSON.parse(localStorage.getItem("guestUser"))
-        // const res = await updateUserGameSearchState(user.value.id,true);
-        // // now search for other players with search state of true
-        // const searchgingGamesUsers = await getGameSearchingUsers(user.value.id);
-        findgame(user.value.id);
+        findGame(actualUser.value.id);
 
     })
     stopSearching.addEventListener('click', async () => {
@@ -145,7 +137,14 @@ import { findgame, socket } from "./router.js";
             user.className = "user";
             const username = document.createElement('div');
             username.classList = ["username", "field"]
-            username.textContent = element.username
+            let is_me = false
+            if (element.username === actualUser.value.guest_name) {
+                username.innerText = `(me)\t${element.username}`
+                is_me = true;
+            } else {
+                username.innerText = element.username;
+            }
+
             const games = document.createElement('div');
             games.classList = ["games", "field"];
             games.textContent = element.games;
@@ -168,34 +167,37 @@ import { findgame, socket } from "./router.js";
             user.appendChild(is_online);
             user.appendChild(is_playing);
             user_Tags.appendChild(user);
-            user.addEventListener('click', async (e) => {
-                const rect = user.getBoundingClientRect();
-                popup.style.top = `${rect.top + window.screenY + user.offsetHeight}px`;
-                popup.style.left = `${rect.left + window.screenY}px`;
-                popup.classList.remove('hidden');
-                console.log(element.id);
-                const player = await getPlayerById(element.id);
-                console.log(player);
+            if (!is_me) {
+                user.addEventListener('click', async (e) => {
+                    const rect = user.getBoundingClientRect();
+                    popup.style.top = `${rect.top + window.screenY + user.offsetHeight}px`;
+                    popup.style.left = `${rect.left + window.screenY}px`;
+                    popup.classList.remove('hidden');
+                    console.log(element.id);
+                    const player = await getPlayerById(element.id);
+                    console.log(player);
 
-                const img = document.querySelector('.popup-header');
-                const username = document.querySelector('.popup-title');
-                const name = document.querySelector(".popup-name");
-                // meta will be the rank in integer
-                const meta = document.querySelector('.popup-meta');
-                // rank will be the name of ther ank grandmaster and tn
-                const rank = document.querySelector('.popup-rank');
-                if (player.profile_picture == null) {
-                    img.src = "../images/profile.png"
-                } else img.src = player.profile_picture
-                username.textContent = player.username;
-                if (name) name.textContent = player.firstname
-                meta.textContent = player.rank
-                rank.textContent = player.text_rank
+                    const img = document.querySelector('.popup-header');
+                    const username = document.querySelector('.popup-title');
+                    const name = document.querySelector(".popup-name");
+                    // meta will be the rank in integer
+                    const meta = document.querySelector('.popup-meta');
+                    // rank will be the name of ther ank grandmaster and tn
+                    const rank = document.querySelector('.popup-rank');
+                    if (player.profile_picture == null) {
+                        img.src = "../images/profile.png"
+                    } else img.src = player.profile_picture
+                    username.textContent = player.username;
+                    if (name) name.textContent = player.firstname
+                    meta.textContent = player.rank
+                    rank.textContent = player.text_rank
 
 
 
-                // make a fetch request for username and .....
-            })
+                    // make a fetch request for username and .....
+                })
+            }
+
         });
     }
 
@@ -244,39 +246,44 @@ import { findgame, socket } from "./router.js";
     let in_game = false;
     // SECTION FOR SOCKETS LISTENING 
     const opponent_pic = document.querySelector('.person img');
-    socket.on('game-started', async ({ roomId, opponentId,color ,opponent_color, timer}) => {
-        // need to get information about opponent first and store him in localstorage
-        searchModal.classList.add('hide');
-        const opponent = await getPlayerById(opponentId);
-        localStorage.setItem("guestOpponent",opponent);
-        localStorage.setItem("roomId", roomId);
-        opponent_name.textContent = opponent.username;
-        if(opponent.profile_picture) opponent_pic.src = opponent.profile_picture;
-        // display the board
-        firstTurn = timer;
-        in_game = true;
-        socket.emit('start-game', (roomId,color,opponent_color,timer));
+    if (socket) {
+        socket.off('game-started');
+        socket.on('game-started', async ({ roomId, opponentId, color, opponent_color, timer }) => {
+            // need to get information about opponent first and store him in localstorage
+            searchModal.classList.add('hide');
+            const opponent = await getPlayerById(opponentId);
+            localStorage.setItem("guestOpponent", JSON.stringify(opponent));
+            localStorage.setItem("roomId", roomId);
+            opponent_name.textContent = opponent.username;
+            if (opponent.profile_picture) opponent_pic.src = opponent.profile_picture;
+            // display the board
+            in_game = true;
+            console.log("game-started");
+            socket.emit('start-game', {roomId,opponentId, color, opponent_color, timer});
 
-    });
-    if(in_game && sessionStorage.getItem("reloaded")){
-        const roomId = JSON.parse(localStorage.getItem("roomId"));
-        const user = JSON.parse(localStorage.getItem("guestUser"));
-        // if there is localstorage of the roomId get it and rejoin
-        if(roomId){
-            socket.emit("rejoin-room", (roomId));
-        }else {
-            socket.emit("get-roomId",(user.value.id));
+        });
+        if (in_game && sessionStorage.getItem("reloaded")) {
+            const roomId = JSON.parse(localStorage.getItem("roomId"));
+            const user = JSON.parse(localStorage.getItem("guestUser"));
+            // if there is localstorage of the roomId get it and rejoin
+            if (roomId) {
+                socket.emit("rejoin-room", (roomId));
+            } else {
+                socket.emit("get-roomId", (user.value.id));
+            }
+            sessionStorage.removeItem("reloaded");
         }
-        sessionStorage.removeItem("reloaded");
+        socket.off('rejoined');
+        socket.on("rejoined", ({ game }) => {
+            // here set everything 
+        })
+        socket.off('roomId');
+        socket.on("roomId", ({ roomId }) => {
+            localStorage.setItem("roomId", roomId);
+            socket.emit("rejoin-room", (roomId));
+        })
     }
-    socket.on("rejoined", ({game}) => {
-        // here set everything 
-    })
 
-    socket.on("roomId", ({roomId}) => {
-        localStorage.setItem("roomId",roomId);
-        socket.emit("rejoin-room", (roomId));
-    })
 
     // on reload set a localstorage variable
     window.addEventListener('beforeunload', () => {

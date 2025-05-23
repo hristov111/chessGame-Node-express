@@ -1,3 +1,4 @@
+import { navigate } from "../router.js";
 import { setErrorText } from "./validation.js";
 
 
@@ -33,17 +34,50 @@ const closeModalOverlay = (modalOverlay) => {
     }
 }
 
+const updatePlayerActiveState = async (username,is_online) => {
+    console.log(username,is_online);
+    try {
+        const res = await fetch(`/api/users/updateplayerActiveState?name=${username}&status=${is_online}`, {
+            method:"PATCH",
+            credentials:"include",
+        })
 
-const pageAuthentication = async () => {
-    const modalOverlay = document.querySelector('.modal-overlay');
-    if (!modalOverlay) return null;
-    await extractAndSet(modalOverlay, '/pages/partials/modal-choose.html', null, ['/scripts/modal-choose.js']);
+        console.log(res);
+        const data = await res.json();
+        return data;
+    }catch(error){
+        console.log("Server error: ", error);
+    }
+}
+
+
+const logOutUser = async (username) => {
+    await updatePlayerActiveState(username,false);
+    const res = await fetch('/api/users/logout', {
+        method:"POST",
+        credentials:"include",
+    })
+    if(res.ok){
+        await navigate('login');
+
+
+    }
+}
+
+const pageAuthentication = async (sensitivePage) => {
+    let modalOverlay;
+    if (sensitivePage != 'profile') {
+        modalOverlay = document.querySelector('.modal-overlay');
+        if (!modalOverlay) return null;
+        await extractAndSet(modalOverlay, '/pages/partials/modal-choose.html', null, ['/scripts/modal-choose.js']);
+    }
+
     let user = undefined;
-    console.log('pageAuth');
     const res = await checkSession();
     const userInLocalStorage = JSON.parse(localStorage.getItem("guestUser"));
     // session has expired now get to log in sign up or play as guest   
     if (!res?.session) {
+        if(sensitivePage === 'profile') return 'nouser';
         openModalOverlay("sessionCheck", modalOverlay);
     } else {
         const sessionUser = {
@@ -411,7 +445,7 @@ const startTimer = (duration, display, onEnd = () => { }) => {
     }, 1000)
 }
 
-export {
+export {logOutUser,updatePlayerActiveState,
     extractAndSet, startTimer, getGameSearchingUsers, getTitleByELO, updateUserGameSearchState, refreshExpiry, setwithExpiry, getwithExpiry, getPlayerById, fetchUserINfo, greetUser, createGuestUser, fetchAllActivePlayers,
     checkIfUsernameExists, checkSession, registerUser, setProperButtons, generateGuestName, openModalOverlay, pageAuthentication, closeModalOverlay, getGamesForToday
 };

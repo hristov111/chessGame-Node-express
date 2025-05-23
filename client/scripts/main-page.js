@@ -1,10 +1,12 @@
 import { extractAndSet, getwithExpiry,openModalOverlay,pageAuthentication, refreshExpiry, fetchUserINfo, setwithExpiry, setProperButtons, checkSession, generateGuestName, createGuestUser } from "./utils/utils.js";
-import { navigate } from "./router.js";
+import { navigate ,initializeSocket} from "./router.js";
 (async () => {
 
 
 
     const user = await pageAuthentication();
+    const actualUser = JSON.parse(localStorage.getItem('guestUser'));
+    if(actualUser)initializeSocket(actualUser.value.id);
     const modalOverlay = document.querySelector('.modal-overlay');
 
 

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const {getAllUsersFunc,getUserByIdFunc,restoreGuestFunc,usernameExistsFunc,getUserByUsernameFunc,createUserFunc,
+const {getAllUsersFunc,logOutFunc,getUserByIdFunc,restoreGuestFunc,usernameExistsFunc,getUserByUsernameFunc,createUserFunc,
     updatePlayerActiveStateFunc,createGuestUserFunc,updateGameSearchState,getGameSearchingUsers,
     updateAllActiveStateFunc,getallActiveUsersFunc,getAllUnactiveUsersFunc,getUserByCharFunc,updatePasswordFunc,getEverythingForUser
 ,getSession,updateProfileFunc} = require('../controllers/users.js');
@@ -17,6 +17,7 @@ router.route('/existsUsername').get([
 router.route('/createGuest').post(createGuestUserFunc); 
 router.route("/restore-guest").post(restoreGuestFunc);
 router.use(requireLogin);
+router.route('/logout').post(logOutFunc);
 // router.route("/:id").get(getUserByIdFunc)
 router.route("/verifypassword").post([
     body('usr').notEmpty().withMessage("Specify a user"),
@@ -50,7 +51,7 @@ router.route("/me").get(getSession);
 router.route("/allActive").get(getallActiveUsersFunc);
 router.route("/active").get(getUserByCharFunc);
 router.route("/allUnactive").get(getAllUnactiveUsersFunc);
-router.route("/updateplayer").patch([
+router.route("/updateplayerActiveState").patch([
   query("name")
     .notEmpty().withMessage("No user specified")
     .isString().withMessage("Name must be a string"),

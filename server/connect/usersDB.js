@@ -19,6 +19,7 @@ const getUserByUsername = async (username) => {
     return rows[0];
 }
 
+
 const getAdminStatus = async (username) => {
     const [rows] = await pool.query(`SELECT isAdmin FROM users WHERE username = ?`, [username]);
     return rows[0];

@@ -1,5 +1,6 @@
 import { navigate } from "./router.js";
-
+import { updatePlayerActiveState } from "./utils/utils.js";
+import { initializeSocket } from "./router.js";
 
 (() => {
     const formLogin = document.querySelector('.login');
@@ -25,8 +26,6 @@ import { navigate } from "./router.js";
 
         const username = document.querySelector("input[name='username']").value;
         const password = document.querySelector("input[name='password']").value;
-        console.log(username);
-        console.log(password);
         try {
             const response = await fetch('/api/users/login', {
                 method: "POST",
@@ -41,7 +40,10 @@ import { navigate } from "./router.js";
                 setErrorSuccessMessage("❌ Wrong password", passError, () => () => clearErrorSuccessMessage(userError));
             } else if (response.status == 200) {
                 setErrorSuccessMessage("✅ Success", userError);
-                navigate('main');
+                // set is_active to true
+                await updatePlayerActiveState(username, true);
+                
+               await navigate('main');
             } else {
                 console.log("There was an intyernal error. Please refresh and try again");
             }

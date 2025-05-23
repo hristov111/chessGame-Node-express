@@ -9,7 +9,7 @@ const pageConfig = {
         src: "/pages/mainPaths",
         navbar: "main-navbar",
         scripts: ["/scripts/main-page.js"],
-        styles: ["/styles/partials/modal-choose.css", "/styles/main.css"]
+        styles: ["/styles/partials/modal-choose.css", "/styles/main.css","/styles/partials/main-nav.css"]
 
     },
     "game-panel": {
@@ -164,73 +164,71 @@ const navigate = async (page, pagePath = null) => {
     history.pushState(null, '', url);
     await loadPage(fileToLoad, pagePath);
 }
+
+
 let socket;
-const user = JSON.parse(localStorage.getItem("guestUser"));
 
-if(!sessionStorage.getItem("socket_connected")){
-    socket = io({query: {userId: user?.value?.id}});
-    sessionStorage.setItem("socket_connected", "true");
-    console.log("socket given");
-}else {
-    socket = io({query: {userId: user.value.id}});
+function initializeSocket(userId) {
+    if (!socket || !socket.connected) {
+        socket = io({ query: { Id:userId } });
+        socket.off("connect");
+        socket.on('connect', () => {
+            console.log("Socket connected:", socket.id);
+        });
+        socket.off("receive-invite");
+        socket.on('receive-invite', ({ from, fromSocketId }) => {
+            const accept = confirm(`Player ${from} invited you to a game. Accept?`);
+            if (accept) {
+                const roomId = `${fromSocketId}_${socket.id}`;
+                socket.emit('accept-invite', { toSocketId: fromSocketId, roomId });
+            } else {
+                socket.emit('decline-invite', { toSocketId: fromSocketId });
+            }
+        });
+        socket.off("invite-accepted");
+        socket.on('invite-accepted', ({ roomId }) => {
+            console.log(`Joined room ${roomId}`);
+            // No need to join manually — let the server handle that.
+        });
+        socket.off("opponent-move");
+        socket.on('opponent-move', (move) => {
+            console.log("Opponent moved:", move);
+        });
+        socket.off("game-ended");
+        socket.on("game-ended", ({ reason }) => {
+            console.log("Game ended:", reason);
+        });
+        socket.off("disconnect");
+        socket.on("disconnect", () => {
+            console.log("Disconnected");
+        });
+    }
 }
 
-const findgame = async(userId) => {
-    socket.emit('find-game', userId);
 
+
+// Game actions
+function findGame(userId) {
+    socket.emit('find-game', {userId});
 }
 
+function sendInvite(opponentId) {
+    socket.emit('send-invite', { opponentId, from: socket.id });
+}
+
+function sendMove(roomId, move) {
+    socket.emit('move', { roomId, move });
+}
+
+function resign(roomId) {
+    socket.emit('resign', { roomId, reason: "Resignation" });
+}
 (async () => {
     let container = document.querySelector('.container');
     let app = document.querySelector('.app');
     let footer = document.querySelector('.footer');
 
-    const sendInvite = (opponentId) => {
-        socket.emit('send-invite', { opponentId, from: socket.id });
-    }
-    socket.on('connect', () => {
-    })
-
-    socket.on("receive-invite", ({from, fromSocketId}) => {
-        const accpet = confirm(`Player ${from} invited you to a game. Accept or not`);
-        if(accpet){
-            const roomId = `${fromSocketId}_${socket.id}`;
-            socket.emit('accept-invite', {toSocketId: fromSocketId, roomId});
-
-        }else {
-            socket.emit('decline-invite', {toSocketId: fromSocketId});
-
-        }
-    })  
-
-    socket.on('invite-accepted', ({roomId}) => {
-        socket.join(roomId);
-        
-    })
-    socket.on('Invite-declined', () => {
-        // declined invite
-    })
-
-
-    function sendMove(roomId,move){
-        socket.emit('move', {reemid, move});
-    }
-    socket.on('opponent-move', (move) => {
-        console.log(JSON.stringify(move));
-    })
-
-    function resign(roomId){
-        socket.emit('resign', {roomId, reason: "Resignation"});
-    }
-
-    socket.on("game-ended", ({reason}) => {
-        // game ended type shi
-    })
-
-    socket.on("disconnect", () => {
-        console.log("disconnetced");
-        sessionStorage.removeItem("socket_connected");
-    })
+    
 
     // set the navbar
     // await extractAndSet(navbar, '/pages/partials/main-navbar.html', null, ['/scripts/main-navbar.js']);
@@ -242,4 +240,4 @@ const findgame = async(userId) => {
 
 })();
 
-export { navigate, loadPage, navbar ,findgame,socket};
+export { navigate, loadPage, navbar ,findGame,socket,initializeSocket};

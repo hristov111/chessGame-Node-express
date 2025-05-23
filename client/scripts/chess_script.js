@@ -18,7 +18,6 @@ import { startTimer } from "/scripts/utils/utils.js"
     let current_Timer;
 
 
-    console.log('Hello');
 
     let figures = {
         king: ["/chess-images/king.png", "/chess-images/king_black.png"],
@@ -47,7 +46,6 @@ import { startTimer } from "/scripts/utils/utils.js"
                 this.image_path = color === "black" ? figures.takeBlack(type) : figures.takeWhite(type);
                 this.enemy_color = color === "black" ? "white" : "black";
                 let square_divs = document.querySelectorAll('.square');
-                console.log(square_divs);
                 let figure_img = document.createElement("img");
                 figure_img.src = this.image_path;
                 figure_img.width = 83;
@@ -452,7 +450,6 @@ import { startTimer } from "/scripts/utils/utils.js"
             button.addEventListener('click', () => {
                 // find figure that is clicked
                 const figure = Figure.getElementFromTable(Number(button.classList[1]));
-                console.log(table);
                 // check if the user has clicked on a occupied space
                 if (figure.type !== "" && figure.color === my_color && turn == my_color) {
                     // setting click to true
@@ -497,7 +494,6 @@ import { startTimer } from "/scripts/utils/utils.js"
                         // and adding a event listener to them
                         el.addEventListener('click', makeMove);
                     })
-                    console.log(buttons);
                 } else {
                     if (last_moves.find(el => el === button)) return;
 
@@ -522,7 +518,6 @@ import { startTimer } from "/scripts/utils/utils.js"
     function createChessBoard() {
         let board = document.querySelector('.ChessBoard');
         let id = 0;
-        console.log('ghello');
         for (let row = 0; row < 8; row++) {
             for (let col = 0; col < 8; col++) {
                 let square = document.createElement("button");
@@ -603,41 +598,26 @@ import { startTimer } from "/scripts/utils/utils.js"
 
     }
     const setNextTurn = () => {
-        if(current_Timer.classList.contains("opponent-timer")){
+        if (current_Timer.classList.contains("opponent-timer")) {
             current_Timer = document.querySelector('.my-time');
-        }else {
+        } else {
             current_Timer = document.querySelector('.opponent-time');
         }
-        turn == "black"?"white":"black";
+        turn == "black" ? "white" : "black";
     }
     const timerEnds = () => {
-        setNextTurn
-        startTimer(600, current_Timer,timerEnds);
+        setNextTurn();
+        startTimer(600, current_Timer, timerEnds);
     }
-    socket.on('game-ready', async ({ roomId, color, opponent_color, timer }) => {
-        // here we know that both users are ready
-        // check if timer is your and if it is start it
-        if (timer) {
-            // start timer
-            // set your timer to start
-            const myTimer = document.querySelector(".my-time");
-            turn = color;
-            current_Timer = myTimer;
-            startTimer(600, myTimer, timerEnds);
-            GLmy_color = color;
-        } else {
-            // set opponent timer to start
-            // wait 
-            const opponentTimer = document.querySelector(".opponent-time");
-            turn = opponent_color;
-            current_Timer = opponentTimer;
-            startTimer(600, opponentTimer, timerEnds);
-            GLopponent_color = opponent_color
-        }
-        GLroomId = roomId;
-        GAME(opponent_color, color);
+    if (socket) {
+        socket.off('game-ready');
+        socket.on('game-ready', async ({ roomId, color, opponent_color, timer }) => {
+            GLroomId = roomId;
+            GAME(opponent_color, color);
 
-    })
+        })
+    }
+
     if (!turn) {
         createChessBoard();
         alignStart("black", "white");

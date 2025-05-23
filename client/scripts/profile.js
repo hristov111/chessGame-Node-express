@@ -4,10 +4,20 @@ import {
 } from "./utils/validation.js";
 
 import { extractAndSet, fetchUserINfo, greetUser, getPlayerById } from "./utils/utils.js";
-import { navigate } from "./router.js";
+import { navigate ,initializeSocket} from "./router.js";
+import { pageAuthentication } from "./utils/utils.js";
 
 
 (async () => {
+
+    const user = await pageAuthentication('profile');
+    const actualUser = JSON.parse(localStorage.getItem('guestUser'));
+    if(actualUser)initializeSocket(actualUser.value.id);
+    // redirect to login
+    if(user === 'nouser'){
+        navigate('login');
+    }
+
     const changebtn = document.querySelector('.btn.primary');
     const deletebtn = document.querySelector('.btn.secondary');
     const avatarInput = document.querySelector('#avatarInput');
@@ -76,8 +86,8 @@ import { navigate } from "./router.js";
             user = JSON.parse(localStorage.getItem("user"));
         }
 
-        if(user.profile_picture)avatarImg.src = user.profile_picture;
-        rank.innerText = user.rank; 
+        if (user.profile_picture) avatarImg.src = user.profile_picture;
+        rank.innerText = user.rank;
         text_rank.innerText = user.text_rank;
         usernameInput.value = user.username;
         if (user.email) emailInput.value = user.email;
@@ -99,10 +109,16 @@ import { navigate } from "./router.js";
 
 
     usernameInput.addEventListener('input', () => {
-        let res = isUsernameValid(usernameInput.value,{paragraph:'',checked:false}) 
-        if(res){
-            usernameError.innerText = res.paragraph;
-            ISusername = res.checked;
+        let res = isUsernameValid(usernameInput.value, { paragraph: '', checked: false })
+        if (res) {
+            if (res == '') {
+                usernameError.innerText = '';
+                ISusername = false;
+            } else {
+                usernameError.innerText = res.paragraph;
+                ISusername = res.checked;
+            }
+
         }
         else {
             usernameError.innerText = "❌ Enter username!";
@@ -113,38 +129,56 @@ import { navigate } from "./router.js";
 
     emailInput.addEventListener('input', () => {
         const res = isEmailValid(emailInput.value);
-        emailErorr.innerText = res.msg;
-        ISemail = res.passed;
+        if (res == '') {
+            emailErorr.innerText = '';
+            ISemail = true;
+        } else {
+            emailErorr.innerText = res.msg;
+            ISemail = res.passed;
+        }
+
     })
 
     firstNameInput.addEventListener('input', () => {
         const res = isNameValid(firstNameInput.value);
-        firstNameError.innerText = res.msg;
-        ISfirstname = res.passed;
+        if (res === '') {
+            firstNameError.innerText = '';
+            ISfirstname = true;
+        } else {
+            firstNameError.innerText = res.msg;
+            ISfirstname = res.passed;
+        }
+
 
     });
 
     lastNameInput.addEventListener('input', () => {
         const res = isNameValid(lastNameInput.value);
-        lastNameError.innerText =res.msg;
-        ISlastname = res.passed;
+        if (res === '') {
+            lastNameError.innerText = '';
+            ISlastname = true;
+        } else {
+            lastNameError.innerText = res.msg;
+            ISlastname = res.passed;
+        }
+
 
     });
 
     bioInput.addEventListener('input', () => {
         const res = isBioValid(bioInput.value);
-        bioError.innerText =res.msg;
-        ISbio = res.passed; 
+        bioError.innerText = res.msg;
+        ISbio = res.passed;
 
     });
 
     passwordInput.addEventListener('input', () => {
         const out = isPasswordValid(passwordInput.value);
-        let text = out !== true? out: '';
-        passwordError.innerText =text;
-        if(text === true){
+        let text = out !== true ? out : '';
+        passwordError.innerText = text;
+        if (text === true) {
             ISpassword = true;
-        }else ISpassword = false; 
+        } else ISpassword = false;
     })
 
     formSubmit.addEventListener('submit', async (e) => {
