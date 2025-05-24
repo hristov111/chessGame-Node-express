@@ -1,5 +1,5 @@
 // here will be the whole logic for the game itself
-import { checkSession, extractAndSet, setProperButtons, startTimer, updateUserGameSearchState, getGameSearchingUsers } from "/scripts/utils/utils.js";
+import { checkSession, extractAndSet, setProperButtons, updateUserGameSearchState, getGameSearchingUsers } from "/scripts/utils/utils.js";
 import { fetchAllActivePlayers, pageAuthentication, getGamesForToday, getPlayerById } from "/scripts/utils/utils.js";
 import { findGame, socket, initializeSocket } from "./router.js";
 
@@ -20,7 +20,10 @@ import { findGame, socket, initializeSocket } from "./router.js";
 
     const user = await pageAuthentication();
     const actualUser = JSON.parse(localStorage.getItem("guestUser"));
-    if (actualUser) initializeSocket(actualUser.value.id);
+    if (actualUser) {
+        initializeSocket(actualUser.value.id);
+        
+    }
 
     // actibvve players for today
     const peoplePlaying = document.querySelector('.people-playing');
@@ -262,26 +265,6 @@ import { findGame, socket, initializeSocket } from "./router.js";
             socket.emit('start-game', {roomId,opponentId, color, opponent_color, timer});
 
         });
-        if (in_game && sessionStorage.getItem("reloaded")) {
-            const roomId = JSON.parse(localStorage.getItem("roomId"));
-            const user = JSON.parse(localStorage.getItem("guestUser"));
-            // if there is localstorage of the roomId get it and rejoin
-            if (roomId) {
-                socket.emit("rejoin-room", (roomId));
-            } else {
-                socket.emit("get-roomId", (user.value.id));
-            }
-            sessionStorage.removeItem("reloaded");
-        }
-        socket.off('rejoined');
-        socket.on("rejoined", ({ game }) => {
-            // here set everything 
-        })
-        socket.off('roomId');
-        socket.on("roomId", ({ roomId }) => {
-            localStorage.setItem("roomId", roomId);
-            socket.emit("rejoin-room", (roomId));
-        })
     }
 
 
@@ -289,6 +272,13 @@ import { findGame, socket, initializeSocket } from "./router.js";
     window.addEventListener('beforeunload', () => {
         sessionStorage.setItem("reloaded", "true");
     })
+
+    if(sessionStorage.getItem("reloaded")){
+        console.log(actualUser.value.id);
+        socket.emit("rejoin-room", ({userId:actualUser.value.id}));
+    }
+
+    sessionStorage.removeItem("reloaded");
 
 })();
 // get the navbar header

@@ -1,22 +1,22 @@
 const pageConfig = {
-    profile:{
-        src:"/pages/mainPaths",
+    profile: {
+        src: "/pages/mainPaths",
         navbar: "main-navbar",
         scripts: ["/scripts/profile.js"],
-        styles: ["/styles/profile.css","/styles/partials/main-nav.css"]
+        styles: ["/styles/profile.css", "/styles/partials/main-nav.css"]
     },
     main: {
         src: "/pages/mainPaths",
         navbar: "main-navbar",
         scripts: ["/scripts/main-page.js"],
-        styles: ["/styles/partials/modal-choose.css", "/styles/main.css","/styles/partials/main-nav.css"]
+        styles: ["/styles/partials/modal-choose.css", "/styles/main.css", "/styles/partials/main-nav.css"]
 
     },
     "game-panel": {
         src: "/pages/mainPaths",
         navbar: "main-navbar",
         scripts: ["/scripts/main-page-GAME-READY.js", "/scripts/chess_script.js"],
-        styles: ["/styles/partials/modal-choose.css", "/styles/partials/main-nav-VERTICAL.css", 
+        styles: ["/styles/partials/modal-choose.css", "/styles/partials/main-nav-VERTICAL.css",
             "/styles/chess-style.css"
             , "/styles/main-GAME-READY.css", "/styles/popupprofile.css"],
     },
@@ -151,7 +151,7 @@ window.addEventListener('popstate', async (e) => {
 
 // called when thje user click a button or link 
 const navigate = async (page, pagePath = null) => {
-    if(page == 'login'){
+    if (page == 'login') {
         localStorage.clear();
         sessionStorage.clear();
     }
@@ -170,7 +170,10 @@ let socket;
 
 function initializeSocket(userId) {
     if (!socket || !socket.connected) {
-        socket = io({ query: { Id:userId } });
+        socket = io({ query: { Id: userId } });
+        window.socket =socket;
+        window.dispatchEvent(new Event('socket-ready'));
+
         socket.off("connect");
         socket.on('connect', () => {
             console.log("Socket connected:", socket.id);
@@ -209,15 +212,19 @@ function initializeSocket(userId) {
 
 // Game actions
 function findGame(userId) {
-    socket.emit('find-game', {userId});
+    socket.emit('find-game', { userId });
 }
 
 function sendInvite(opponentId) {
     socket.emit('send-invite', { opponentId, from: socket.id });
 }
 
-function sendMove(roomId, move) {
-    socket.emit('move', { roomId, move });
+function sendMove(roomId, player, from, to,table) {
+    console.log(roomId, player, from, to);
+    socket.emit('move', {
+        roomId,
+        move: { player, from, to },table
+    });
 }
 
 function resign(roomId) {
@@ -228,7 +235,7 @@ function resign(roomId) {
     let app = document.querySelector('.app');
     let footer = document.querySelector('.footer');
 
-    
+
 
     // set the navbar
     // await extractAndSet(navbar, '/pages/partials/main-navbar.html', null, ['/scripts/main-navbar.js']);
@@ -240,4 +247,4 @@ function resign(roomId) {
 
 })();
 
-export { navigate, loadPage, navbar ,findGame,socket,initializeSocket};
+export { navigate, loadPage, navbar, findGame, socket, initializeSocket, sendMove };

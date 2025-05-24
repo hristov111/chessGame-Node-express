@@ -36,37 +36,47 @@ const timers = new Map();
 
 const startServerTimer = (roomId) => {
     const timer = {
-        whiteTime:600,
-        blackTime:600,
+        whiteTime: 600,
+        blackTime: 600,
         currentTurn: 'white',
-        interval:null,
+        interval: null,
     }
 
 
     timer.interval = setInterval(() => {
-        if(timer.currentTurn === 'white'){
-            timer.whiteTime --;
-        }else {
+        if (timer.currentTurn === 'white') {
+            timer.whiteTime--;
+        } else {
             timer.blackTime--;
         }
 
         io.to(roomId).emit('timer-update', {
             whiteTime: timer.whiteTime,
-            blackTime:timer.blackTime,
+            blackTime: timer.blackTime,
+            turn: timer.currentTurn
         });
 
 
-        if(timer.whiteTime <= 0 || timer.blackTime <= 0){
+        if (timer.whiteTime <= 0 || timer.blackTime <= 0) {
             clearInterval(timer.interval);
             io.to(roomId).emit('game-ended', {
                 reason: 'timeout',
-                lose: timer.whiteTime <= 0? 'white': 'black'
+                lose: timer.whiteTime <= 0 ? 'white' : 'black'
             });
             timers.delete(roomId);
         }
-    },1000);
-    timers.set(roomId,timer);
+    }, 1000);
+    timers.set(roomId, timer);
 }
+
+function flipIndex(idx) {
+    const row = Math.floor(idx / 8);
+    const col = idx % 8;
+    const flippedRow = 7 - row;
+    return flippedRow * 8 + col;
+}
+
+
 
 io.use((socket, next) => {
     const userId = socket.handshake.query.userId;
@@ -106,20 +116,47 @@ io.on('connection', (socket) => {
         io.to(toSocketId).emit('invite-declined');
     })
 
-    socket.on("get-roomId", ({ userId }) => {
+
+    socket.on("rejoin-room", ({ userId }) => {
+        let roomId;
+        console.log("rejoining");
         for (let [key, value] of chessGameState) {
-            if (value.player1 === userId || value.player2 === userId) {
-                socket.emit("roomId", ({ key }));
+            if (value.player1.id === userId || value.player2.id === userId) {
+                roomId = key;
+                break;
             }
         }
-        socket.emit("roomId", (null));
-    })
-
-    socket.on("rejoin-room", ({ roomId, userId }) => {
-        const game = chessGameState[roomId];
-        if (game) {
-            socket.join(roomId);
-            socket.emit("rejoined", { ...game });
+        console.log(roomId);
+        if (roomId) {
+            const game = chessGameState.get(roomId);
+            console.log(game);
+            let table;
+            if (game.player1.id === userId) {
+                if (game.player1.color === 'white') {
+                    table = game.currentTableWhite;
+                } else {
+                    table = game.currentTableBlack;
+                }
+            } else if (game.player2.id === userId) {
+                if (game.player2.color === 'white') {
+                    table = game.currentTableWhite;
+                } else {
+                    table = game.currentTableBlack;
+                }
+            }
+            if (game) {
+                console.log(game);
+                socket.join(roomId);
+                let timer = timers.get(roomId);
+                socket.emit("rejoined", {table,
+                    roomId,
+                    player1:game.player1,
+                    player2:game.player2,
+                    currentTurn:timer.currentTurn,
+                    whiteTime:timer.whiteTime,
+                    blackTime:timer.blackTime
+                });
+            }
         }
     })
     // need to fetch current waiting list
@@ -142,8 +179,10 @@ io.on('connection', (socket) => {
             p1socket.join(roomId);
             p2socket.join(roomId);
             chessGameState.set(roomId, {
-                player1: p1Id,
-                player2: p2Id,
+                player1: { id: p1Id, color: 'white' },
+                player2: { id: p2Id, color: 'black' },
+                currentTableWhite: [],
+                currentTableBlack: []
             });
 
             p1socket.emit('game-started', { roomId, opponentId: p2Id, color: 'black', opponent_color: "white", timer: true });
@@ -174,6 +213,7 @@ io.on('connection', (socket) => {
 
 
             if (socket1 && socket2) {
+                console.log('starting game');
                 socket1.emit('game-ready', {
                     roomId,
                     color,
@@ -207,8 +247,22 @@ io.on('connection', (socket) => {
     });
 
 
-    socket.on('move', ({ roomId, from, to }) => {
-        socket.to(roomId).emit('opponentMove', { from, to });
+    socket.on('move', ({ roomId, move: { player, from, to }, table }) => {
+        console.log("Moving: " + player);
+        const game = chessGameState.get(roomId);
+        if (game && player === 'white') {
+            console.log("Set table white");
+            game.currentTableWhite = table;
+        }
+        else if (game && player === 'black') {
+            console.log("Set table black");
+            game.currentTableBlack = table;
+        }
+        socket.to(roomId).emit('opponentMove', { from: flipIndex(from), to: flipIndex(to) });
+        let timer = timers.get(roomId);
+        timer.currentTurn = player === 'white' ? 'black' : 'white';
+        timer.whiteTime = 600;
+        timer.blackTime = 600;
     })
 
     socket.on('resign', ({ roomId, reason }) => {
@@ -230,7 +284,7 @@ app.use('/', pages);
 app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, '../client/index.html'));
 })
-httpServer.listen(3000, '0.0.0.0', () => {
+httpServer.listen(3001, '0.0.0.0', () => {
     console.log("Server running");
 });
 

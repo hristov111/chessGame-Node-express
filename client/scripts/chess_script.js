@@ -5,8 +5,8 @@
 //     console.log(`connected with ${socket.id}`);
 // })
 
-import { socket } from "./router.js";
-import { startTimer } from "/scripts/utils/utils.js"
+import { socket, sendMove } from "./router.js";
+import { calculateTimer } from "/scripts/utils/utils.js"
 
 
 (async () => {
@@ -15,7 +15,6 @@ import { startTimer } from "/scripts/utils/utils.js"
     let GLmy_color;
     let GLopponent_color;
     let GLroomId;
-    let current_Timer;
 
 
 
@@ -400,6 +399,40 @@ import { startTimer } from "/scripts/utils/utils.js"
         })
         last_moves = [];
     }
+
+    const findHtmlelementByIDX = (idx) => {
+        let square_buttons = document.querySelectorAll('.square');
+        for (let square of square_buttons) {
+            if (Number(square.classList[1]) === idx) return square;
+        }
+        return undefined;
+    }
+
+    const makeOpponentMove = (from, to) => {
+        const parentFig = Figure.getElementFromTable(from);
+        const enemyFig = Figure.getElementFromTable(to);
+        const parentHTML = findHtmlelementByIDX(from);
+        const enemyHTML = findHtmlelementByIDX(to);
+        console.log(parentFig);
+        console.log(enemyFig);
+        console.log(parentHTML);
+        console.log(enemyHTML);
+
+
+        parentHTML.firstElementChild.remove();
+        if (enemyFig.image_path != undefined) enemyHTML.firstElementChild.remove();
+
+
+        let enemy_img = document.createElement("img");
+        enemy_img.src = parentFig.image_path;
+        enemy_img.width = 83;
+        enemy_img.height = 83;
+        enemyHTML.appendChild(enemy_img);
+
+        table[from] = Figure.create("", "", from);
+        parentFig.position = to;
+        table[to] = parentFig;
+    }
     const makeMove = (event) => {
         let enemy_pos = Number(event.currentTarget.classList[1]);
         let parent_pos = Number(last_button.classList[1]);
@@ -421,9 +454,17 @@ import { startTimer } from "/scripts/utils/utils.js"
         event.currentTarget.appendChild(enemy_img);
         // MEMORY
         // then fix table
+        // make old position wiht empty figure
         table[parent_idx] = Figure.create("", "", parent_pos);
+        // set parent fig position to enemy position
         parent_fig.position = enemy_pos;
+        // set table enemyidx to the new figure
         table[enemy_idx] = parent_fig;
+
+
+        sendMove(GLroomId, turn, parent_pos, enemy_pos, table);
+        switchTurns();
+
 
         untoggleButton(square_buttonsArray, clicked, last_moves);
 
@@ -605,23 +646,89 @@ import { startTimer } from "/scripts/utils/utils.js"
         }
         turn == "black" ? "white" : "black";
     }
-    const timerEnds = () => {
-        setNextTurn();
-        startTimer(600, current_Timer, timerEnds);
+    // const timerEnds = () => {
+    //     setNextTurn();
+    //     startTimer(600, current_Timer, timerEnds);
+    // }
+
+    const renderFromTable = (newTable) => {
+        table = [];
+        for (let record of newTable) {
+            table.push(Figure.create(record.type, record.color, record._position));
+
+        }
     }
-    if (socket) {
+
+    const switchTurns = () => {
+        document.querySelector('.opponent-time').innerText = '10:00';
+        document.querySelector('.my-time').innerText = '10:00';
+        turn = turn === 'black' ? 'white' : 'black';
+        current_Timer = current_Timer.classList.contains("opponent-time") ?
+            document.querySelector('.my-time') :
+            document.querySelector('.opponent-time');
+    }
+    const opponet_timer = document.querySelector('.opponent-time');
+    const my_timer = document.querySelector('.my-time');
+    let current_Timer;
+
+
+    const InitializeSocketEvents = () => {
         socket.off('game-ready');
         socket.on('game-ready', async ({ roomId, color, opponent_color, timer }) => {
             GLroomId = roomId;
+            GLopponent_color = opponent_color;
+            GLmy_color = color;
+            if (timer) {
+                turn = color
+                current_Timer = document.querySelector('.my-time');
+            }
+            else {
+                current_Timer = document.querySelector('.opponent-time');
+                turn = opponent_color;
+            }
             GAME(opponent_color, color);
 
         })
+        socket.off("timer-update");
+        socket.on('timer-update', ({ whiteTime, blackTime, turn }) => {
+            if (turn === 'white') calculateTimer(whiteTime, current_Timer);
+            else calculateTimer(blackTime, current_Timer);
+
+        })
+        // we will threat from to with indexes
+        // here we need to switch timers 
+        socket.off("opponentMove");
+        socket.on('opponentMove', ({ from, to }) => {
+            console.log("moving opponent");
+            switchTurns();
+            makeOpponentMove(from, to);
+        })
+        socket.off("rejoined");
+        socket.on("rejoined", ({table,roomId}) => {
+            renderFromTable(table);
+        })
+
     }
 
-    if (!turn) {
-        createChessBoard();
-        alignStart("black", "white");
+
+    function onSocketReady() {
+        InitializeSocketEvents();
+        window.removeEventListener('socket-ready', onSocketReady); // auto-cleanup
     }
+
+    if (window.socket) {
+        InitializeSocketEvents();
+    } else {
+        window.removeEventListener('socket-ready', onSocketReady); // just in case
+        window.addEventListener('socket-ready', onSocketReady);
+    }
+
+
+
+    createChessBoard();
+    alignStart("black", "white");
+    console.log(table);
+
 
 })();
 
