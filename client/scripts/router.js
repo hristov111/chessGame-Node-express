@@ -223,7 +223,7 @@ function sendMove(roomId, player, from, to,table) {
     console.log(roomId, player, from, to);
     socket.emit('move', {
         roomId,
-        move: { player, from, to },table
+        move: { player, from, to }
     });
 }
 

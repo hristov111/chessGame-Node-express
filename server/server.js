@@ -76,6 +76,35 @@ function flipIndex(idx) {
     return flippedRow * 8 + col;
 }
 
+const changeTablePos = (table, from, to) => {
+    let playerFrom;
+    let playerTo;
+    let count = 0;
+    for (let element of table) {
+        if (element._position === from) {
+            playerFrom = element;
+            count++;
+        } else if (element._position === to) {
+            playerTo = element;
+            count++;
+        }
+        if (count === 2) break;
+    }
+    if (!playerFrom || !playerTo) {
+        console.warn("Invalid move: one or both positions not found:", from, to);
+        return;
+    }
+    // GOING ->>>>
+    playerTo.image_path = playerFrom.image_path;
+    playerTo.color = playerFrom.color;
+    playerTo.type = playerFrom.type;
+    playerTo.enemy_color = playerFrom.enemy_color;
+    //
+    playerFrom.color = '';
+    playerFrom.type = '';
+    playerFrom.image_path = '';
+}
+
 
 
 io.use((socket, next) => {
@@ -145,16 +174,16 @@ io.on('connection', (socket) => {
                 }
             }
             if (game) {
-                console.log(game);
                 socket.join(roomId);
                 let timer = timers.get(roomId);
-                socket.emit("rejoined", {table,
+                socket.emit("rejoined", {
+                    table,
                     roomId,
-                    player1:game.player1,
-                    player2:game.player2,
-                    currentTurn:timer.currentTurn,
-                    whiteTime:timer.whiteTime,
-                    blackTime:timer.blackTime
+                    player1: game.player1,
+                    player2: game.player2,
+                    currentTurn: timer.currentTurn,
+                    whiteTime: timer.whiteTime,
+                    blackTime: timer.blackTime
                 });
             }
         }
@@ -192,6 +221,13 @@ io.on('connection', (socket) => {
 
             waiting_players.delete(p1Id);
             waiting_players.delete(p2Id);
+        }
+    })
+    socket.on("get-table-one-time", ({ roomId, player, table }) => {
+        const game = chessGameState.get(roomId);
+        if (game.currentTableBlack.length === 0 || game.currentTableWhite.length === 0) {
+            if (player === 'white') game.currentTableWhite = table;
+            else if (player === 'black') game.currentTableBlack = table;
         }
     })
     socket.on('start-game', ({ roomId, opponentId, color, opponent_color, timer }) => {
@@ -246,18 +282,27 @@ io.on('connection', (socket) => {
         }
     });
 
-
-    socket.on('move', ({ roomId, move: { player, from, to }, table }) => {
-        console.log("Moving: " + player);
+    // socket.on('update-tables', ({roomId,player,table}) => {
+    //     const game = chessGameState.get(roomId);
+    //     if (game && player === 'white') {
+    //         console.log("Set table white");
+    //         game.currentTableWhite = table;
+    //     }
+    //     else if (game && player === 'black') {
+    //         console.log("Set table black");
+    //         game.currentTableBlack = table;
+    //     }
+    // })
+    socket.on('move', ({ roomId, move: { player, from, to } }) => {
         const game = chessGameState.get(roomId);
-        if (game && player === 'white') {
-            console.log("Set table white");
-            game.currentTableWhite = table;
+        if (player === 'white') {
+            changeTablePos(game.currentTableWhite, from, to);
+            changeTablePos(game.currentTableBlack, flipIndex(from), flipIndex(to));
+        } else if (player === 'black') {
+            changeTablePos(game.currentTableBlack, from, to);
+            changeTablePos(game.currentTableWhite, flipIndex(from), flipIndex(to));
         }
-        else if (game && player === 'black') {
-            console.log("Set table black");
-            game.currentTableBlack = table;
-        }
+        console.log("Moving: " + player);
         socket.to(roomId).emit('opponentMove', { from: flipIndex(from), to: flipIndex(to) });
         let timer = timers.get(roomId);
         timer.currentTurn = player === 'white' ? 'black' : 'white';

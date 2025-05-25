@@ -16,6 +16,24 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     let GLopponent_color;
     let GLroomId;
 
+    const movesDisplay = document.querySelector('.game-started-moves');
+
+    const positionToAlgebraic = (idx) => {
+        const file = 'abcdefgh'[idx % 8];
+        const rank = 8 - Math.floor(idx/8);
+        return file+rank;
+    }
+
+    const displayMoves = (display,from ,to,color) =>{
+        const algFrom = positionToAlgebraic(from);
+        const algTo = positionToAlgebraic(to);
+        const h1 = document.createElement('h1');
+        h1.innerText = `${color}\t${from}-->${to}`;
+        display.appendChild(h1);
+    }
+
+    const user = JSON.parse(localStorage.getItem("guestUser"));
+
 
 
     let figures = {
@@ -383,22 +401,30 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             return this.getStraightMoves(this.color, this.position);
         }
     }
-
+    // Global variables
     let last_button;
-    let square_buttonsArray;
-    let clicked
-    let last_moves;
-    const untoggleButton = (square_buttonsArray, clicked, last_moves) => {
+    let square_buttonsArray = [];
+    let clicked = false;
+    let last_moves = [];
+
+    const untoggleButton = () => {
         square_buttonsArray.forEach(el => {
             el.style.opacity = '1';
-        })
+        });
         last_button = undefined;
         clicked = false;
         last_moves.forEach(el => {
             if (el) el.removeEventListener('click', makeMove);
-        })
+        });
         last_moves = [];
-    }
+    };
+
+    const clearLastMovesArray = () => {
+        last_moves.forEach(el => {
+            if (el) el.removeEventListener('click', makeMove);
+        });
+        last_moves = [];
+    };
 
     const findHtmlelementByIDX = (idx) => {
         let square_buttons = document.querySelectorAll('.square');
@@ -406,22 +432,16 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             if (Number(square.classList[1]) === idx) return square;
         }
         return undefined;
-    }
+    };
 
     const makeOpponentMove = (from, to) => {
         const parentFig = Figure.getElementFromTable(from);
         const enemyFig = Figure.getElementFromTable(to);
         const parentHTML = findHtmlelementByIDX(from);
         const enemyHTML = findHtmlelementByIDX(to);
-        console.log(parentFig);
-        console.log(enemyFig);
-        console.log(parentHTML);
-        console.log(enemyHTML);
 
-
-        parentHTML.firstElementChild.remove();
-        if (enemyFig.image_path != undefined) enemyHTML.firstElementChild.remove();
-
+        if (parentHTML?.firstElementChild) parentHTML.firstElementChild.remove();
+        if (enemyFig?.image_path && enemyHTML?.firstElementChild) enemyHTML.firstElementChild.remove();
 
         let enemy_img = document.createElement("img");
         enemy_img.src = parentFig.image_path;
@@ -432,7 +452,10 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         table[from] = Figure.create("", "", from);
         parentFig.position = to;
         table[to] = parentFig;
-    }
+                displayMoves(movesDisplay,from,to,GLopponent_color);
+
+    };
+
     const makeMove = (event) => {
         let enemy_pos = Number(event.currentTarget.classList[1]);
         let parent_pos = Number(last_button.classList[1]);
@@ -441,123 +464,82 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         let enemy_idx = table.indexOf(enemy_fig);
         let parent_idx = table.indexOf(parent_fig);
 
-        // FRONTEND
-        // REMOVE MY PICTURE FROM THE DOM and the ENEMY picture from the DOM
-        last_button.firstElementChild.remove();
-        if (enemy_fig.image_path != undefined) event.currentTarget.firstElementChild.remove();
+        if (last_button?.firstElementChild) last_button.firstElementChild.remove();
+        if (enemy_fig?.image_path && event.currentTarget.firstElementChild)
+            event.currentTarget.firstElementChild.remove();
 
-        // CHANGE ENEMY IMAGE TO parent
         let enemy_img = document.createElement("img");
         enemy_img.src = parent_fig.image_path;
         enemy_img.width = 83;
         enemy_img.height = 83;
         event.currentTarget.appendChild(enemy_img);
-        // MEMORY
-        // then fix table
-        // make old position wiht empty figure
+
         table[parent_idx] = Figure.create("", "", parent_pos);
-        // set parent fig position to enemy position
         parent_fig.position = enemy_pos;
-        // set table enemyidx to the new figure
         table[enemy_idx] = parent_fig;
 
-
         sendMove(GLroomId, turn, parent_pos, enemy_pos, table);
+        displayMoves(movesDisplay,parent_pos,enemy_pos,GLmy_color);
         switchTurns();
 
+        untoggleButton();
+    };
 
-        untoggleButton(square_buttonsArray, clicked, last_moves);
-
-        // now i need to clear the toggling 
-    }
-
-    const clearLastMovesArray = (last_moves) => {
-        last_moves.forEach(el => {
-            if (el) el.removeEventListener('click', makeMove);
-        })
-        last_moves = [];
-    }
     function GAME(opponent_color, my_color) {
-        let board = document.querySelector('.ChessBoard');
-        board.innerHTML = '';
-        table = [];
-        createChessBoard();
-        alignStart(opponent_color, my_color);
-        let square_buttons = document.querySelectorAll('.square');
+        const square_buttons = document.querySelectorAll('.square');
         square_buttonsArray = Array.from(square_buttons);
         clicked = false;
         last_moves = [];
-        square_buttons.forEach((button) => {
+
+        square_buttonsArray.forEach((button) => {
             button.addEventListener('click', () => {
-                // find figure that is clicked
-                const figure = Figure.getElementFromTable(Number(button.classList[1]));
-                // check if the user has clicked on a occupied space
-                if (figure.type !== "" && figure.color === my_color && turn == my_color) {
-                    // setting click to true
+                const idx = Number(button.classList[1]);
+                const figure = Figure.getElementFromTable(idx);
+
+                if (figure.type !== "" && figure.color === my_color && turn === my_color) {
                     clicked = true;
-                    // if we have clicked an already clicked figure
-                    // we want to untoggle by restoring the screen
+
                     if (last_button === button) {
-                        // making everything opacity to one as by default
-                        // untoggle button and return
-                        untoggleButton(square_buttonsArray, last_button, clicked, last_moves);
+                        untoggleButton();
                         return;
                     } else {
-                        // set the last button to be that button so we can track
                         last_button = button;
-
-
                     }
-                    clearLastMovesArray(last_moves);
-                    // available moves for current clicked figure
+
+                    clearLastMovesArray();
+
                     const moves = figure.calculateMoves();
-                    // if there are available moves for the figure we wanna make eveytging with opacity 0.5
-                    if (moves && moves.length > 0) {
-                        square_buttonsArray.forEach(el => {
-                            el.style.opacity = "0.5";
-                        })
+
+                    if (moves?.length > 0) {
+                        square_buttonsArray.forEach(el => el.style.opacity = "0.5");
                     } else {
                         return;
                     }
+
                     button.style.opacity = "1";
-                    // find the html buttons corresponding to the moves we found earilier so we can manuipilate them
-                    let buttons = [];
-                    moves.forEach(move => {
+                    last_moves = moves.map(move => {
                         let btn = square_buttonsArray.find(butt => Number(butt.classList[1]) === move.position);
-                        buttons.push(btn);
-                        last_moves.push(btn);
-                    })
+                        if (btn) {
+                            btn.style.opacity = '1';
+                            btn.addEventListener('click', makeMove);
+                        }
+                        return btn;
+                    }).filter(Boolean);
 
-
-                    buttons.forEach(el => {
-                        // make them with opacity 1
-                        el.style.opacity = '1';
-                        // and adding a event listener to them
-                        el.addEventListener('click', makeMove);
-                    })
                 } else {
-                    if (last_moves.find(el => el === button)) return;
+                    if (last_moves.includes(button)) return;
 
                     if (clicked) {
-                        square_buttonsArray.forEach(el => {
-                            el.style.opacity = '1';
-                        })
-                        clicked = false;
-                        last_moves.forEach(el => {
-                            if (el) el.removeEventListener('click', makeMove);
-                        })
-                        last_moves = [];
+                        untoggleButton();
                     }
-                    last_button = undefined;
-
                 }
-
-            })
-        })
+            });
+        });
     }
 
     function createChessBoard() {
         let board = document.querySelector('.ChessBoard');
+        board.innerHTML = '';
         let id = 0;
         for (let row = 0; row < 8; row++) {
             for (let col = 0; col < 8; col++) {
@@ -630,6 +612,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     }
 
     function alignStart(opponent_color, my_color) {
+        table = [];
         align_opponnet(opponent_color);
         for (let i = 16; i < 48; i++) {
             table.push(new Figure("", "", i));
@@ -670,6 +653,8 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     const opponet_timer = document.querySelector('.opponent-time');
     const my_timer = document.querySelector('.my-time');
     let current_Timer;
+    const opponent_name = document.querySelector('.opponent-name');
+    const opponent_pic = document.querySelector('.person img');
 
 
     const InitializeSocketEvents = () => {
@@ -686,7 +671,15 @@ import { calculateTimer } from "/scripts/utils/utils.js"
                 current_Timer = document.querySelector('.opponent-time');
                 turn = opponent_color;
             }
-            GAME(opponent_color, color);
+            createChessBoard();
+            alignStart(GLopponent_color, GLmy_color);
+            socket.emit('get-table-one-time', {
+                roomId: GLroomId,
+                player: GLmy_color,
+                table: table
+            });
+            GAME(GLopponent_color, GLmy_color);
+            localStorage.setItem("gameReady", "true")
 
         })
         socket.off("timer-update");
@@ -704,8 +697,25 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             makeOpponentMove(from, to);
         })
         socket.off("rejoined");
-        socket.on("rejoined", ({table,roomId}) => {
+        socket.on("rejoined", ({ table, roomId, player1, player2, currentTurn, whiteTime, blackTime }) => {
+            const enemy = JSON.parse(localStorage.getItem("guestOpponent"))
+            GLroomId = roomId;
+            if (user.value.id === player1.id) {
+                GLmy_color = player1.color;
+                GLopponent_color = player2.color
+            } else if (user.value.id === player2.id) {
+                GLmy_color = player2.color;
+                GLopponent_color = player1.color;
+            }
+            turn = currentTurn;
+            if (turn === GLmy_color) current_Timer = document.querySelector('.my-time');
+            else current_Timer = document.querySelector('.opponent-time');
+            opponent_name.textContent = enemy.username
+            if (enemy.profile_picture) opponent_pic.src = enemy.profile_picture;
+            createChessBoard();
             renderFromTable(table);
+            GAME(GLopponent_color, GLmy_color);
+            // opponent_name.textContent = localStorage.getItem('')
         })
 
     }
@@ -724,10 +734,11 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     }
 
 
-
-    createChessBoard();
-    alignStart("black", "white");
-    console.log(table);
+    if (!(localStorage.getItem("gameReady") === 'true') && !localStorage.getItem("roomId")) {
+        createChessBoard();
+        alignStart("black", "white");
+        console.log(table);
+    }
 
 
 })();

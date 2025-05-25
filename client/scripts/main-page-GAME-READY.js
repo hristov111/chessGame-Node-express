@@ -263,9 +263,19 @@ import { findGame, socket, initializeSocket } from "./router.js";
             in_game = true;
             console.log("game-started");
             socket.emit('start-game', {roomId,opponentId, color, opponent_color, timer});
-
+            window.gameHasStarted = true;
+            window.dispatchEvent(new Event('game-on'));
+            // need to deisable buttons and so on
         });
     }
+
+
+
+    window.addEventListener('game-one', () => {
+        
+    })
+
+
 
 
     // on reload set a localstorage variable
