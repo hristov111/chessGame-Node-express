@@ -1,7 +1,7 @@
 
 import { navigate, loadPage, navbar } from "./router.js";
 import { logOutUser } from "./utils/utils.js";
-( async() => {
+(async () => {
 
 
     const user = JSON.parse(localStorage.getItem("guestUser"));
@@ -14,6 +14,8 @@ import { logOutUser } from "./utils/utils.js";
     const navLogOut = document.querySelector('#logout-btn');
     const navLogin = document.querySelector('#nav-login');
     const navSignUp = document.querySelector('.signup-btn');
+
+    const resignModal = document.querySelector('.resign-Tab-overlay');
     if (navPlay) {
         navPlay.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -34,20 +36,33 @@ import { logOutUser } from "./utils/utils.js";
     if (navProfile) {
         navProfile.addEventListener('click', async (e) => {
             e.preventDefault();
-            await navigate('profile');
+            if (window.gameHasStarted && resignModal) {
+                resignModal.classList.remove('hide-resign');
+            } else {
+                await navigate('profile');
+            }
+
         })
     }
 
     if (navHome) {
         navHome.addEventListener('click', async (e) => {
             e.preventDefault();
-            await navigate('main');
+            if (window.gameHasStarted && resignModal) {
+                resignModal.classList.remove('hide-resign');
+            } else {
+                await navigate('main');
+            }
         })
     }
     if (navLogOut) {
         navLogOut.addEventListener('click', async (e) => {
             e.preventDefault();
-            await logOutUser(user.value.guest_name);
+             if (window.gameHasStarted && resignModal) {
+                resignModal.classList.remove('hide-resign');
+            } else {
+                await logOutUser(user.value.guest_name);
+            }
         })
     }
 

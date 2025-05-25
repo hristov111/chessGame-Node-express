@@ -22,7 +22,7 @@ import { findGame, socket, initializeSocket } from "./router.js";
     const actualUser = JSON.parse(localStorage.getItem("guestUser"));
     if (actualUser) {
         initializeSocket(actualUser.value.id);
-        
+
     }
 
     // actibvve players for today
@@ -246,6 +246,40 @@ import { findGame, socket, initializeSocket } from "./router.js";
             // add him send him a challange
         }
     })
+    const gameStartedTab = document.querySelector('.game-started-moves');
+    const resign_Overlay = document.querySelector('.resign-Tab-overlay ');
+    const resign_button = document.querySelector('resign-butt');
+    const yes_resign = document.querySelector('.yes-resign');
+    const no_resign = document.querySelector('.no-resign');
+    resign_button.addEventListener('click', () => {
+        resign_Overlay.classList.remove('hide-resign');
+    });
+    yes_resign.addEventListener('click', () => {
+        // trigger game ended
+    })
+    no_resign.addEventListener('click', () => {
+        resign_Overlay.classList.add('hide-resign');
+    })
+
+    const gameISOn = () => {
+        console.log("event game on triggered");
+        newGameButton.disabled = true;
+        show_playersButt.disabled = true;
+        startGameTab.style.display = 'none';
+        searchPlayersTab.style.display = 'none';
+        gameStartedTab.style.display = 'block'
+    }
+    window.addEventListener('game-on', gameISOn)
+    window.addEventListener('beforeunload', () => {
+        sessionStorage.setItem("reloaded", "true");
+    })
+
+    if (sessionStorage.getItem("reloaded")) {
+        console.log(actualUser.value.id);
+        socket.emit("rejoin-room", ({ userId: actualUser.value.id }));
+    }
+
+    sessionStorage.removeItem("reloaded");
     let in_game = false;
     // SECTION FOR SOCKETS LISTENING 
     const opponent_pic = document.querySelector('.person img');
@@ -262,7 +296,7 @@ import { findGame, socket, initializeSocket } from "./router.js";
             // display the board
             in_game = true;
             console.log("game-started");
-            socket.emit('start-game', {roomId,opponentId, color, opponent_color, timer});
+            socket.emit('start-game', { roomId, opponentId, color, opponent_color, timer });
             window.gameHasStarted = true;
             window.dispatchEvent(new Event('game-on'));
             // need to deisable buttons and so on
@@ -271,24 +305,11 @@ import { findGame, socket, initializeSocket } from "./router.js";
 
 
 
-    window.addEventListener('game-one', () => {
-        
-    })
 
 
 
 
     // on reload set a localstorage variable
-    window.addEventListener('beforeunload', () => {
-        sessionStorage.setItem("reloaded", "true");
-    })
-
-    if(sessionStorage.getItem("reloaded")){
-        console.log(actualUser.value.id);
-        socket.emit("rejoin-room", ({userId:actualUser.value.id}));
-    }
-
-    sessionStorage.removeItem("reloaded");
 
 })();
 // get the navbar header

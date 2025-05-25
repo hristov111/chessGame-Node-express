@@ -1,7 +1,16 @@
 <div class="modal-overlay" id="authModal"></div>
+<div class="resign-Tab-overlay hide-resign">
+    <div class="resign-modal">
+        <h1>Do you want to resign?</h1>
+        <div class="buttons-resign">
+            <button class="yes-resign">Yes</button>
+            <button class="no-resign">No</button>
+        </div>
+    </div>
+</div>
 <div class="search-modal-overlay hide" id="searchModal">
     <div class="search-modal">
-        <h2>🔍  Searching, please wait <span class="dots"></span></h2>
+        <h2>🔍 Searching, please wait <span class="dots"></span></h2>
         <button class="stop-searching">Stop search</button>
     </div>
 </div>
@@ -29,7 +38,7 @@
             <button class="show-players">Players</button>
         </div>
         <div class="options-startgame">
-            <div class="start-gameTab">
+            <div class="start-gameTab ">
                 <h1>10 Min rapid</h1>
                 <button class="start-gameButt">Start Game</button>
                 <button>Play a Friend</button>
@@ -50,9 +59,9 @@
                     <div class="user-tags"></div>
                 </div>
             </div>
-            <div class="game-started-moves">
-                <button class="resign">Resign</button>
-            </div>  
+            <div class="game-started-moves" style="display: none;" id="move-log">
+                <button class="resign-butt">Resign</button>
+            </div>
         </div>
     </div>
     <div class="footer-window">

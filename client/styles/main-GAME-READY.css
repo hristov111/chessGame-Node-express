@@ -142,6 +142,7 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 0.7rem;
+    position: relative;
 }
 
 .options-startgame h1 {
@@ -320,4 +321,129 @@ body {
     background-color: #218838;
     transform: translateY(-2px);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+
+
+/* RESIGN MODAL */
+
+
+.resign-Tab-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.resign-modal {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #1e1e1e;
+    padding: 30px 50px;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 1.5rem;
+    text-align: center;
+    box-shadow: 0 0 20px #28a745;
+}
+
+.buttons-resign{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-direction: row;
+    width: 100%;
+    gap: 20px;
+}
+
+.hide-resign {
+    display: none;
+}
+
+
+.yes-resign ,.no-resign {
+    background-color: #28a745;
+    padding: 0.75rem 1rem;
+    color: white;
+    font-size: 1rem;
+    border: none;
+    /* border-radius: 6px; */
+    cursor: pointer;
+    flex: 1;
+    transition: all 0.3s ease;
+}
+
+.yes-resign:hover ,.no-resign:hover{
+    background-color: #218838;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+
+/* MOVE LOG */
+
+.game-started-moves{
+    position: absolute;
+    top: 5px;
+    right: 100px;
+    width: 250px;
+    max-height: 500px;
+    overflow-y: auto;
+    background-color: #1e1e1e;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px #28a745;
+    color: #fff;
+    font-family: monospace;
+    z-index: 1000;
+
+}
+
+.game-started-moves h1{
+    font-size: 1rem;
+    margin: 8px 0;
+    white-space: pre;
+}
+
+.resign-butt {
+    background-color: #dc3545;
+    border: none;
+    color: white;
+    padding: 8px 12px;
+    font-size: 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.resign-butt:hover{
+    background-color: #c82333;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #999;
+  border-radius: 8px;
+  border: 2px solid #f0f0f0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #666;
 }

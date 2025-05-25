@@ -18,17 +18,10 @@ import { calculateTimer } from "/scripts/utils/utils.js"
 
     const movesDisplay = document.querySelector('.game-started-moves');
 
-    const positionToAlgebraic = (idx) => {
-        const file = 'abcdefgh'[idx % 8];
-        const rank = 8 - Math.floor(idx/8);
-        return file+rank;
-    }
 
-    const displayMoves = (display,from ,to,color) =>{
-        const algFrom = positionToAlgebraic(from);
-        const algTo = positionToAlgebraic(to);
+    const displayMoves = (display, from, to, color) => {
         const h1 = document.createElement('h1');
-        h1.innerText = `${color}\t${from}-->${to}`;
+        h1.innerText = `${color.padEnd(6)} ${from} ---> ${to}`;
         display.appendChild(h1);
     }
 
@@ -452,8 +445,6 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         table[from] = Figure.create("", "", from);
         parentFig.position = to;
         table[to] = parentFig;
-                displayMoves(movesDisplay,from,to,GLopponent_color);
-
     };
 
     const makeMove = (event) => {
@@ -479,7 +470,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         table[enemy_idx] = parent_fig;
 
         sendMove(GLroomId, turn, parent_pos, enemy_pos, table);
-        displayMoves(movesDisplay,parent_pos,enemy_pos,GLmy_color);
+        turn = GLopponent_color;
         switchTurns();
 
         untoggleButton();
@@ -643,10 +634,9 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     }
 
     const switchTurns = () => {
-        document.querySelector('.opponent-time').innerText = '10:00';
-        document.querySelector('.my-time').innerText = '10:00';
-        turn = turn === 'black' ? 'white' : 'black';
-        current_Timer = current_Timer.classList.contains("opponent-time") ?
+        document.querySelector('.opponent-time').innerText = '01:00';
+        document.querySelector('.my-time').innerText = '01:00';
+        current_Timer =turn ==GLmy_color ?
             document.querySelector('.my-time') :
             document.querySelector('.opponent-time');
     }
@@ -688,16 +678,28 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             else calculateTimer(blackTime, current_Timer);
 
         })
+        socket.off("get_currentMove");
+        socket.on("get_currentMove", ({ move }) => {
+            displayMoves(movesDisplay, move.from, move.to, move.player);
+        })
+        // socket.on("get-allMoves", ({ moves }) => {
+
+        // })
         // we will threat from to with indexes
         // here we need to switch timers 
         socket.off("opponentMove");
-        socket.on('opponentMove', ({ from, to }) => {
+        socket.on('opponentMove', ({ from, to ,currentTurn}) => {
             console.log("moving opponent");
+            turn = currentTurn;
             switchTurns();
             makeOpponentMove(from, to);
         })
+        socket.on("time-out", ({currentTurn}) => {
+            turn = currentTurn;
+            switchTurns();
+        })
         socket.off("rejoined");
-        socket.on("rejoined", ({ table, roomId, player1, player2, currentTurn, whiteTime, blackTime }) => {
+        socket.on("rejoined", ({ table,moves, roomId, player1, player2, currentTurn, whiteTime, blackTime }) => {
             const enemy = JSON.parse(localStorage.getItem("guestOpponent"))
             GLroomId = roomId;
             if (user.value.id === player1.id) {
@@ -716,6 +718,12 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             renderFromTable(table);
             GAME(GLopponent_color, GLmy_color);
             // opponent_name.textContent = localStorage.getItem('')
+            // render the moves 
+            window.dispatchEvent(new Event('game-on'));
+            moves.forEach(move => {
+                displayMoves(movesDisplay,move.from,move.to,move.player);
+            })
+
         })
 
     }

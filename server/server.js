@@ -35,10 +35,11 @@ const timers = new Map();
 
 
 const startServerTimer = (roomId) => {
+    const game = chessGameState.get(roomId);
     const timer = {
         whiteTime: 600,
         blackTime: 600,
-        currentTurn: 'white',
+        currentTurn: game.currentTurn,
         interval: null,
     }
 
@@ -58,15 +59,26 @@ const startServerTimer = (roomId) => {
 
 
         if (timer.whiteTime <= 0 || timer.blackTime <= 0) {
-            clearInterval(timer.interval);
-            io.to(roomId).emit('game-ended', {
-                reason: 'timeout',
-                lose: timer.whiteTime <= 0 ? 'white' : 'black'
-            });
-            timers.delete(roomId);
+            // Switch turn based on current timer state, not stale game state
+            timer.currentTurn = timer.currentTurn === 'white' ? 'black' : 'white';
+
+            // Also update the game state
+            const game = chessGameState.get(roomId);
+            game.currentTurn = timer.currentTurn;
+
+            io.to(roomId).emit('time-out', ({currentTurn:game.currentTurn}));
+            timer.whiteTime = 600;
+            timer.blackTime = 600;
+
         }
     }, 1000);
     timers.set(roomId, timer);
+}
+
+const positionToAlgebraic = (idx) => {
+    const file = 'abcdefgh'[idx % 8];
+    const rank = 8 - Math.floor(idx / 8);
+    return file + rank;
 }
 
 function flipIndex(idx) {
@@ -160,17 +172,22 @@ io.on('connection', (socket) => {
             const game = chessGameState.get(roomId);
             console.log(game);
             let table;
+            let moves;
             if (game.player1.id === userId) {
                 if (game.player1.color === 'white') {
                     table = game.currentTableWhite;
+                    moves = game.movesWhite;
                 } else {
                     table = game.currentTableBlack;
+                    moves = game.movesBlack;
                 }
             } else if (game.player2.id === userId) {
                 if (game.player2.color === 'white') {
                     table = game.currentTableWhite;
+                    moves = game.movesWhite;
                 } else {
                     table = game.currentTableBlack;
+                    moves = game.movesBlack;
                 }
             }
             if (game) {
@@ -178,6 +195,7 @@ io.on('connection', (socket) => {
                 let timer = timers.get(roomId);
                 socket.emit("rejoined", {
                     table,
+                    moves,
                     roomId,
                     player1: game.player1,
                     player2: game.player2,
@@ -210,8 +228,11 @@ io.on('connection', (socket) => {
             chessGameState.set(roomId, {
                 player1: { id: p1Id, color: 'white' },
                 player2: { id: p2Id, color: 'black' },
+                currentTurn: 'black',
                 currentTableWhite: [],
-                currentTableBlack: []
+                currentTableBlack: [],
+                movesWhite: [],
+                movesBlack: [],
             });
 
             p1socket.emit('game-started', { roomId, opponentId: p2Id, color: 'black', opponent_color: "white", timer: true });
@@ -296,18 +317,25 @@ io.on('connection', (socket) => {
     socket.on('move', ({ roomId, move: { player, from, to } }) => {
         const game = chessGameState.get(roomId);
         if (player === 'white') {
+            game.movesWhite.push({ player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) });
+            game.movesBlack.push({ player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) });
             changeTablePos(game.currentTableWhite, from, to);
             changeTablePos(game.currentTableBlack, flipIndex(from), flipIndex(to));
         } else if (player === 'black') {
+            game.movesBlack.push({ player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) });
+            game.movesWhite.push({ player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) });
             changeTablePos(game.currentTableBlack, from, to);
             changeTablePos(game.currentTableWhite, flipIndex(from), flipIndex(to));
         }
-        console.log("Moving: " + player);
-        socket.to(roomId).emit('opponentMove', { from: flipIndex(from), to: flipIndex(to) });
         let timer = timers.get(roomId);
         timer.currentTurn = player === 'white' ? 'black' : 'white';
+        game.currentTurn = timer.currentTurn;
         timer.whiteTime = 600;
         timer.blackTime = 600;
+        console.log("Moving: " + player);
+        socket.to(roomId).emit('opponentMove', { from: flipIndex(from), to: flipIndex(to) ,currentTurn:game.currentTurn});
+        socket.to(roomId).emit("get_currentMove", { move: { player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) } });
+        socket.emit("get_currentMove", { move: { player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) } });
     })
 
     socket.on('resign', ({ roomId, reason }) => {
