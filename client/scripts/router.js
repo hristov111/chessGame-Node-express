@@ -154,6 +154,7 @@ const navigate = async (page, pagePath = null) => {
     if (page == 'login') {
         localStorage.clear();
         sessionStorage.clear();
+        socket?.disconnect();
     }
     const [base, query] = page.split('?');
     const params = new URLSearchParams(query);
@@ -169,7 +170,7 @@ const navigate = async (page, pagePath = null) => {
 let socket;
 
 function initializeSocket(userId) {
-    if (!socket || !socket.connected) {
+    if (!socket || !socket.connected && localStorage.getItem("guestUser")) {
         socket = io({ query: { Id: userId } });
         window.socket =socket;
         window.dispatchEvent(new Event('socket-ready'));
@@ -201,10 +202,7 @@ function initializeSocket(userId) {
         socket.on("game-ended", ({ reason }) => {
             console.log("Game ended:", reason);
         });
-        socket.off("disconnect");
-        socket.on("disconnect", () => {
-            console.log("Disconnected");
-        });
+
     }
 }
 
@@ -215,20 +213,24 @@ function findGame(userId) {
     socket.emit('find-game', { userId });
 }
 
+function stopGame(userId){
+    socket.emit("stop-game", {userId});
+}
+
 function sendInvite(opponentId) {
     socket.emit('send-invite', { opponentId, from: socket.id });
 }
 
-function sendMove(roomId, player, from, to,table) {
+function sendMove(roomId, player, from, to,enemy_fig,parent_fig) {
     console.log(roomId, player, from, to);
     socket.emit('move', {
         roomId,
-        move: { player, from, to }
+        move: { player, from, to }, enemy_fig,parent_fig
     });
 }
 
 function resign(roomId) {
-    socket.emit('resign', { roomId, reason: "Resignation" });
+    socket.emit('resign', {roomId, reason: "resigned" });
 }
 (async () => {
     let container = document.querySelector('.container');
@@ -247,4 +249,4 @@ function resign(roomId) {
 
 })();
 
-export { navigate, loadPage, navbar, findGame, socket, initializeSocket, sendMove };
+export { navigate, loadPage,stopGame, navbar, findGame, socket, initializeSocket, sendMove,resign };

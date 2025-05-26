@@ -454,6 +454,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         let parent_fig = Figure.getElementFromTable(parent_pos);
         let enemy_idx = table.indexOf(enemy_fig);
         let parent_idx = table.indexOf(parent_fig);
+        let rebirth = false;
 
         if (last_button?.firstElementChild) last_button.firstElementChild.remove();
         if (enemy_fig?.image_path && event.currentTarget.firstElementChild)
@@ -468,8 +469,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         table[parent_idx] = Figure.create("", "", parent_pos);
         parent_fig.position = enemy_pos;
         table[enemy_idx] = parent_fig;
-
-        sendMove(GLroomId, turn, parent_pos, enemy_pos, table);
+        sendMove(GLroomId, turn, parent_pos, enemy_pos, enemy_fig, parent_fig);
         turn = GLopponent_color;
         switchTurns();
 
@@ -634,9 +634,9 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     }
 
     const switchTurns = () => {
-        document.querySelector('.opponent-time').innerText = '01:00';
-        document.querySelector('.my-time').innerText = '01:00';
-        current_Timer =turn ==GLmy_color ?
+        document.querySelector('.opponent-time').innerText = '10:00';
+        document.querySelector('.my-time').innerText = '10:00';
+        current_Timer = turn == GLmy_color ?
             document.querySelector('.my-time') :
             document.querySelector('.opponent-time');
     }
@@ -645,6 +645,9 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     let current_Timer;
     const opponent_name = document.querySelector('.opponent-name');
     const opponent_pic = document.querySelector('.person img');
+
+    const pawnSelectionModal = document.querySelector('.pawnSelection');
+    const figureRestoreDiv = document.querySelector('.figures-restore');
 
 
     const InitializeSocketEvents = () => {
@@ -678,6 +681,23 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             else calculateTimer(blackTime, current_Timer);
 
         })
+        socket.on("pawnAtEnd", ({roomId,player,posToSwap, captured }) => {
+            // show the screen so user can choose a figure
+            pawnSelectionModal.classList.remove('hide-pawnSelection');
+            captured.forEach(el => {
+                const img = document.createElement('img');
+                img.src = el.image_path
+                figureRestoreDiv.appendChild(img);
+                img.addEventListener('click', () => {
+                    pawnSelectionModal.classList.add('hide-pawnSelection');
+                    socket.emit("swapFigures", ({roomId,player,chosenElement,posToSwap}));
+                })
+
+            })
+        })
+        socket.on("syncTable", ({my_table}) => {
+            renderFromTable(my_table);
+        })
         socket.off("get_currentMove");
         socket.on("get_currentMove", ({ move }) => {
             displayMoves(movesDisplay, move.from, move.to, move.player);
@@ -688,18 +708,22 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         // we will threat from to with indexes
         // here we need to switch timers 
         socket.off("opponentMove");
-        socket.on('opponentMove', ({ from, to ,currentTurn}) => {
-            console.log("moving opponent");
-            turn = currentTurn;
-            switchTurns();
-            makeOpponentMove(from, to);
+        socket.on('opponentMove', (data)  => {
+            const {from, to, currentTurn, dontSwitch=false,dontMove = false }  = data;
+            if (!dontSwitch) {
+                console.log("moving opponent");
+                turn = currentTurn;
+                switchTurns();
+            }
+            if(!dontMove)makeOpponentMove(from, to);
+
         })
-        socket.on("time-out", ({currentTurn}) => {
+        socket.on("time-out", ({ currentTurn }) => {
             turn = currentTurn;
             switchTurns();
         })
         socket.off("rejoined");
-        socket.on("rejoined", ({ table,moves, roomId, player1, player2, currentTurn, whiteTime, blackTime }) => {
+        socket.on("rejoined", ({ table, moves, roomId, player1, player2, currentTurn, whiteTime, blackTime }) => {
             const enemy = JSON.parse(localStorage.getItem("guestOpponent"))
             GLroomId = roomId;
             if (user.value.id === player1.id) {
@@ -721,7 +745,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             // render the moves 
             window.dispatchEvent(new Event('game-on'));
             moves.forEach(move => {
-                displayMoves(movesDisplay,move.from,move.to,move.player);
+                displayMoves(movesDisplay, move.from, move.to, move.player);
             })
 
         })
@@ -742,7 +766,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     }
 
 
-    if (!(localStorage.getItem("gameReady") === 'true') && !localStorage.getItem("roomId")) {
+    if (!window.gameHasStarted) {
         createChessBoard();
         alignStart("black", "white");
         console.log(table);

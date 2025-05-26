@@ -51,16 +51,13 @@ const updatePlayerActiveState = async (username,is_online) => {
 }
 
 
-const logOutUser = async (username) => {
-    await updatePlayerActiveState(username,false);
+const logOutUser = async () => {
     const res = await fetch('/api/users/logout', {
         method:"POST",
         credentials:"include",
     })
     if(res.ok){
         await navigate('login');
-
-
     }
 }
 

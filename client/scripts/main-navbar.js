@@ -1,5 +1,5 @@
 
-import { navigate, loadPage, navbar } from "./router.js";
+import { navigate, loadPage, navbar,socket } from "./router.js";
 import { logOutUser } from "./utils/utils.js";
 (async () => {
 
@@ -61,7 +61,7 @@ import { logOutUser } from "./utils/utils.js";
              if (window.gameHasStarted && resignModal) {
                 resignModal.classList.remove('hide-resign');
             } else {
-                await logOutUser(user.value.guest_name);
+                await logOutUser();
             }
         })
     }

@@ -1,7 +1,7 @@
 // here will be the whole logic for the game itself
 import { checkSession, extractAndSet, setProperButtons, updateUserGameSearchState, getGameSearchingUsers } from "/scripts/utils/utils.js";
 import { fetchAllActivePlayers, pageAuthentication, getGamesForToday, getPlayerById } from "/scripts/utils/utils.js";
-import { findGame, socket, initializeSocket } from "./router.js";
+import { findGame, socket, initializeSocket, resign } from "./router.js";
 
 /**if(user_fetch.status == 401){
         return {
@@ -58,9 +58,7 @@ import { findGame, socket, initializeSocket } from "./router.js";
 
     })
     stopSearching.addEventListener('click', async () => {
-        const user = JSON.parse(localStorage.getItem("guestUser"))
-        const res = await updateUserGameSearchState(user.value.id, false);
-
+        stopGame(actualUser.value.id);
         searchModal.classList.add('hide');
     })
 
@@ -246,21 +244,44 @@ import { findGame, socket, initializeSocket } from "./router.js";
             // add him send him a challange
         }
     })
+
+
     const gameStartedTab = document.querySelector('.game-started-moves');
-    const resign_Overlay = document.querySelector('.resign-Tab-overlay ');
-    const resign_button = document.querySelector('resign-butt');
+    const resign_Overlay = document.querySelector('.resign-Tab-overlay');
+    const resign_button = document.querySelector('.resign-butt');
     const yes_resign = document.querySelector('.yes-resign');
     const no_resign = document.querySelector('.no-resign');
+    const endGame = () => {
+        // trigger endGame Modal
+        window.gameHasStarted = false;
+        newGameButton.disabled = false;
+        show_playersButt.disabled = false;
+        startGameTab.style.display = 'block';
+        searchPlayersTab.style.display = 'none';
+        gameStartedTab.style.display = 'none'
+        opponent_name.innerText = 'Opponent';
+        opponent_pic.src = '/images/profile.png'
+        document.querySelector('.my-time').innerText = '10:00';
+        document.querySelector('.opponent-time').innerText = '10:00';
+        localStorage.removeItem("guestOpponent");
+        localStorage.removeItem("roomId");
+    }
+    no_resign.addEventListener('click', () => {
+        resign_Overlay.classList.add('hide-resign');
+    })
     resign_button.addEventListener('click', () => {
         resign_Overlay.classList.remove('hide-resign');
     });
     yes_resign.addEventListener('click', () => {
-        // trigger game ended
+        console.log(localStorage.getItem("roomId"));
+        resign(localStorage.getItem("roomId"));
+        endGame();
+        resign_Overlay.classList.add('hide-resign');
+
     })
     no_resign.addEventListener('click', () => {
         resign_Overlay.classList.add('hide-resign');
     })
-
     const gameISOn = () => {
         console.log("event game on triggered");
         newGameButton.disabled = true;
@@ -274,7 +295,7 @@ import { findGame, socket, initializeSocket } from "./router.js";
         sessionStorage.setItem("reloaded", "true");
     })
 
-    if (sessionStorage.getItem("reloaded")) {
+    if (sessionStorage.getItem("reloaded") && window.gameHasStarted) {
         console.log(actualUser.value.id);
         socket.emit("rejoin-room", ({ userId: actualUser.value.id }));
     }
@@ -301,6 +322,10 @@ import { findGame, socket, initializeSocket } from "./router.js";
             window.dispatchEvent(new Event('game-on'));
             // need to deisable buttons and so on
         });
+
+        socket.on('game-ended', ({ reason }) => {
+            endGame();
+        })
     }
 
 

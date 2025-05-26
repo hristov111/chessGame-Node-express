@@ -37,9 +37,15 @@ const createGuestUser = async (guest_name) => {
     return id;
 }
 
-const updatePlayerActiveState = async (username, state) => {
-    const [rows] = await pool.query("UPDATE users SET is_online = ? WHERE username = ?", [state,username]);
+const updatePlayerActiveState = async (id, state) => {
+    const [rows] = await pool.query("UPDATE users SET is_online = ? WHERE id = ?", [state,id]);
     return rows;
+}
+
+const updatePlayerPlayingState = async (id,state) =>{
+    const [rows] = await pool.query("UPDATE users SET is_playing = ? WHERE id = ?",[state,id]);
+    return rows;
+
 }
 
 const updatePassword = async(username, password_hash) => {
@@ -66,6 +72,11 @@ const getGameSearchUsers = async (id) => {
     return rows;
 }
 
+const updateGameSearchUser = async (id,state) => {
+    const [rows] = await pool.query("UPDATE users SET is_searching_for_game = ? WHERE id = ?", [id,state]);
+    return rows;
+} 
+
 
 const updateAllActiveState = async (state) => {
     const [rows] = await pool.query("UPDATE users SET is_online = ?", [state]);
@@ -87,6 +98,6 @@ const getUsersByChar = async(char) => {
     return rows;
 }
 
-export {getUsers,getUserById,getUserByUsername,createUser,updatePlayerActiveState,updateAllActiveState, getAllActiveUsers, getAllUnactiveUsers,getUsersByChar,
-    updatePassword,updateUser,getAdminStatus,getUserByEmail,createGuestUser,getGameSearchUsers
+export {getUsers,getUserById,getUserByUsername,createUser,updatePlayerPlayingState,updatePlayerActiveState,updateAllActiveState, getAllActiveUsers, getAllUnactiveUsers,getUsersByChar,
+    updatePassword,updateUser,getAdminStatus,getUserByEmail,createGuestUser,getGameSearchUsers,updateGameSearchUser
 }

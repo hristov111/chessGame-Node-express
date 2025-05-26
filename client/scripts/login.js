@@ -39,11 +39,8 @@ import { initializeSocket } from "./router.js";
             } else if (response.status === 401) {
                 setErrorSuccessMessage("❌ Wrong password", passError, () => () => clearErrorSuccessMessage(userError));
             } else if (response.status == 200) {
-                setErrorSuccessMessage("✅ Success", userError);
-                // set is_active to true
-                await updatePlayerActiveState(username, true);
-                
-               await navigate('main');
+                setErrorSuccessMessage("✅ Success", userError);                
+                await navigate('main');
             } else {
                 console.log("There was an intyernal error. Please refresh and try again");
             }

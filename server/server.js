@@ -8,6 +8,9 @@ const games = require("./routes/games");
 const session = require('express-session');
 const PORT = process.env.PORT || 5500;
 
+const { updateGameSearchUser, updatePlayerActiveState, updatePlayerPlayingState } = require('./connect/usersDB');
+const { registerGame, updateMoves, updateStatus, updateEndTime, updateWinner } = require('./connect/gamesDB');
+
 const { Server } = require('socket.io');
 const { createServer } = require('http');
 const httpServer = createServer(app);
@@ -30,6 +33,7 @@ const startGameStatus = new Map();
 let chessGameState = new Map();
 const connectedUsers = new Map();
 const waiting_players = new Map();
+const ROOMS = new Map();
 
 const timers = new Map();
 
@@ -66,7 +70,7 @@ const startServerTimer = (roomId) => {
             const game = chessGameState.get(roomId);
             game.currentTurn = timer.currentTurn;
 
-            io.to(roomId).emit('time-out', ({currentTurn:game.currentTurn}));
+            io.to(roomId).emit('time-out', ({ currentTurn: game.currentTurn }));
             timer.whiteTime = 600;
             timer.blackTime = 600;
 
@@ -74,6 +78,8 @@ const startServerTimer = (roomId) => {
     }, 1000);
     timers.set(roomId, timer);
 }
+
+
 
 const positionToAlgebraic = (idx) => {
     const file = 'abcdefgh'[idx % 8];
@@ -86,6 +92,33 @@ function flipIndex(idx) {
     const col = idx % 8;
     const flippedRow = 7 - row;
     return flippedRow * 8 + col;
+}
+
+const endGame = async (socket1, socket2, roomId, reason, winner) => {
+    clearInterval(timers.get(roomId)?.interval);
+    timers.delete(roomId);
+    // 
+    const id = ROOMS.get(roomId);
+    await updateStatus(id, reason);
+    await updateEndTime(id, new Date());
+    await updateWinner(id, winner);
+    await updatePlayerPlayingState(socket1.userId, false);
+    await updatePlayerPlayingState(socket2.userId, false);
+    ROOMS.delete(roomId);
+    chessGameState.delete(roomId)
+
+    const room = io.sockets.adapter.rooms.get(roomId);
+
+    if (room) {
+        for (const socketId of room) {
+            const socket = io.sockets.sockets.get(socketId);
+            socket?.leave(room);
+        }
+    }
+
+    startGameStatus.delete(roomId);
+
+
 }
 
 const changeTablePos = (table, from, to) => {
@@ -128,7 +161,7 @@ io.use((socket, next) => {
     }
     next();
 })
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
     const userId = socket.handshake.query.Id;
 
     if (connectedUsers.has(userId)) {
@@ -139,7 +172,11 @@ io.on('connection', (socket) => {
         console.log('New socket connected:', socket.id);
 
     }
+    socket.userId = userId;
     connectedUsers.set(userId, socket);
+
+    await updatePlayerActiveState(userId, true);
+
     // 1. Invite someone to a game \
     socket.on('send-invite', ({ toSocketId, from }) => {
         io.to(toSocketId).emit('receive-ivite', { from, fromSocketId: socket.id });
@@ -212,6 +249,7 @@ io.on('connection', (socket) => {
 
         console.log("Player:" + userId + " is searching for a game");
         waiting_players.set(userId, socket);
+        await updateGameSearchUser(userId, true);
 
         // try to matcvh 
         if (waiting_players.size >= 2) {
@@ -226,22 +264,51 @@ io.on('connection', (socket) => {
             p1socket.join(roomId);
             p2socket.join(roomId);
             chessGameState.set(roomId, {
-                player1: { id: p1Id, color: 'white' },
-                player2: { id: p2Id, color: 'black' },
+                player1: { id: p1Id, color: 'white', socket: p1socket },
+                player2: { id: p2Id, color: 'black', socket: p2socket },
                 currentTurn: 'black',
                 currentTableWhite: [],
                 currentTableBlack: [],
                 movesWhite: [],
                 movesBlack: [],
+                capturedwhite: [],
+                capturedBlack: [],
             });
+            const data = {
+                white_id: p1Id,
+                black_id: p2Id,
+                roomId: roomId,
+                winner: null,
+                result: "none",
+                moves_white: null,
+                moves_black: null,
+                start_time: new Date(),
+                end_time: new Date(),
+                status: "ongoing"
+            }
+            const id = await registerGame(data);
+            if (id) {
+                ROOMS.set(roomId, id);
+                console.log('game registered');
+            } else {
+                console.log("game not registered");
+            }
 
             p1socket.emit('game-started', { roomId, opponentId: p2Id, color: 'black', opponent_color: "white", timer: true });
             p2socket.emit('game-started', { roomId, opponentId: p1Id, color: 'white', opponent_color: "black", timer: false });
 
             // UPDATE DB
-
+            await updateGameSearchUser(p1Id, false);
+            await updateGameSearchUser(p2Id, false);
             waiting_players.delete(p1Id);
             waiting_players.delete(p2Id);
+        }
+    })
+
+    socket.on('stop-find-game', ({ userId }) => {
+        if (waiting_players.size < 2) {
+            waiting_players.delete(userId);
+            console.log(`Player ${userId} stopped searching for game`);
         }
     })
     socket.on("get-table-one-time", ({ roomId, player, table }) => {
@@ -251,7 +318,7 @@ io.on('connection', (socket) => {
             else if (player === 'black') game.currentTableBlack = table;
         }
     })
-    socket.on('start-game', ({ roomId, opponentId, color, opponent_color, timer }) => {
+    socket.on('start-game', async ({ roomId, opponentId, color, opponent_color, timer }) => {
         if (!startGameStatus.has(roomId)) {
             startGameStatus.set(roomId, new Set());
         }
@@ -268,6 +335,8 @@ io.on('connection', (socket) => {
             const socket1 = io.sockets.sockets.get(socketId1);
             const socket2 = io.sockets.sockets.get(socketId2);
 
+            await updatePlayerPlayingState(socket1.userId, true);
+            await updatePlayerPlayingState(socket2.userId, true);
 
             if (socket1 && socket2) {
                 console.log('starting game');
@@ -292,16 +361,77 @@ io.on('connection', (socket) => {
         }
     })
 
-    socket.on('disconnect', () => {
-        console.log("Socket disconnected", socket.id);
-        for (const [userId, s] of waiting_players.entries()) {
-            if (s === socket) {
-                waiting_players.delete(userId);
-                // UPDATE DB
-                break;
+    socket.on('disconnect', async () => {
+        setTimeout(async () => {
+            const currentSocket = connectedUsers.get(socket.userId);
+
+
+            if (!currentSocket || currentSocket.id == socket.id) {
+                await updatePlayerActiveState(socket.userId, false);
+                for (const [key, value] of chessGameState) {
+                    if (value.player1.id === socket.userId || value.player2.id === socket.userId) {
+                        const winner = socket.userId === value.player1.id ? value.player1.color :
+                            value.player2.color
+                        endGame(value.player1.socket, value.player2.socket, key, "aborted", winner);
+                        break;
+                    }
+                }
+                console.log(`${userId} disconnected entirely with socket ${currentSocket.id}`);
+
+            } else {
+                console.log(`${userId} disconnected partially with socket ${socket.id} and reconnected with ${currentSocket.id}`)
             }
-        }
+        }, 1000)
+
     });
+    socket.on("swapFigures", ({ roomId, player, chosenElement, posToSwap }) => {
+        const game = chessGameState.get(roomId);
+        if (!game) return;
+
+        const updatePiece = (piece, newData) => {
+            if (piece) {
+                piece.image_path = newData.image_path;
+                piece.color = newData.color;
+                piece.type = newData.type;
+                piece.enemy_color = newData.enemy_color;
+            }
+        };
+        const whiteSocket = game.player1.color === 'white' ? game.player1.socket : game.player2.socket;
+        const blackSocket = game.player1.color === "black" ? game.player1.socket : game.player2.socket;
+        if (player === 'white') {
+            const whitePiece = game.currentTableWhite.find(el => el._position === posToSwap);
+            const blackPiece = game.currentTableBlack.find(el => el._position === flipIndex(posToSwap));
+            updatePiece(whitePiece, chosenElement);
+            updatePiece(blackPiece, chosenElement);
+            blackSocket.emit("opponentMove", {
+                from: null,
+                to: null,
+                currentTurn: "black",
+                dontSwitch: false,
+                dontMove: true
+            });
+        } else if (player === 'black') {
+            const whitePiece = game.currentTableWhite.find(el => el._position === flipIndex(posToSwap));
+            const blackPiece = game.currentTableBlack.find(el => el._position === posToSwap);
+            updatePiece(whitePiece, chosenElement);
+            updatePiece(blackPiece, chosenElement);
+            whiteSocket.emit("opponentMove", {
+                from: null,
+                to: null,
+                currentTurn: "white",
+                dontSwitch: false,
+                dontMove: true
+            });
+        }
+        let timer = timers.get(roomId);
+        timer.currentTurn = player === 'white' ? 'black' : 'white';
+        game.currentTurn = timer.currentTurn;
+        timer.whiteTime = 600;
+        timer.blackTime = 600;
+        // now sync tables timers
+        whiteSocket.emit("syncTable", { my_table: game.currentTableWhite });
+        blackSocket.emit("syncTable", { my_table: game.currentTableBlack });
+    })
 
     // socket.on('update-tables', ({roomId,player,table}) => {
     //     const game = chessGameState.get(roomId);
@@ -314,33 +444,71 @@ io.on('connection', (socket) => {
     //         game.currentTableBlack = table;
     //     }
     // })
-    socket.on('move', ({ roomId, move: { player, from, to } }) => {
+    socket.on('move', async ({ roomId, move: { player, from, to }, enemy_fig, parent_fig }) => {
         const game = chessGameState.get(roomId);
+        const id = ROOMS.get(roomId);
+        let dontSwitch = false;
         if (player === 'white') {
+            if (parent_fig.type === 'pawn' && to >= 0 && to <= 7) {
+                dontSwitch = true;
+                socket.emit("pawnAtEnd", ({ roomId, player, to, captured: game.capturedBlack }));
+            }
+            if (enemy_fig.type != '') game.capturedwhite.push(enemy_fig);
             game.movesWhite.push({ player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) });
             game.movesBlack.push({ player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) });
             changeTablePos(game.currentTableWhite, from, to);
             changeTablePos(game.currentTableBlack, flipIndex(from), flipIndex(to));
+            await updateMoves
+                (id, `${player.padEnd(6)} ${positionToAlgebraic(from)} ---> ${positionToAlgebraic(to)}`,
+                    `${player.padEnd(6)} ${positionToAlgebraic(flipIndex(from))} ---> ${positionToAlgebraic(flipIndex(to))}`)
+
         } else if (player === 'black') {
+            if (parent_fig.type === 'pawn' && to >= 0 && to <= 7) {
+                dontSwitch = true;
+                socket.emit("pawnAtEnd", ({ roomId, player, to, captured: game.capturedBlack }));
+
+            }
+            if (enemy_fig.type != '') game.capturedBlack.push(enemy_fig);
             game.movesBlack.push({ player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) });
             game.movesWhite.push({ player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) });
             changeTablePos(game.currentTableBlack, from, to);
             changeTablePos(game.currentTableWhite, flipIndex(from), flipIndex(to));
+            await updateMoves
+                (id, `${player.padEnd(6)} ${positionToAlgebraic(flipIndex(from))} ---> ${positionToAlgebraic(flipIndex(to))}`,
+                    `${player.padEnd(6)} ${positionToAlgebraic(from)} ---> ${positionToAlgebraic(to)}`)
         }
-        let timer = timers.get(roomId);
-        timer.currentTurn = player === 'white' ? 'black' : 'white';
-        game.currentTurn = timer.currentTurn;
-        timer.whiteTime = 600;
-        timer.blackTime = 600;
+
+        // freeze time if its on rebirth
+        if (dontSwitch) {
+            let timer = timers.get(roomId);
+            timer.currentTurn = player === 'white' ? 'black' : 'white';
+            game.currentTurn = timer.currentTurn;
+            timer.whiteTime = 600;
+            timer.blackTime = 600;
+        }
         console.log("Moving: " + player);
-        socket.to(roomId).emit('opponentMove', { from: flipIndex(from), to: flipIndex(to) ,currentTurn:game.currentTurn});
+
+        // let the opponent know so he can display it on the board
+        socket.to(roomId).emit('opponentMove', { from: flipIndex(from), to: flipIndex(to), currentTurn: game.currentTurn, dontSwitch });
+        // for displaying moves in the right panel
         socket.to(roomId).emit("get_currentMove", { move: { player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) } });
         socket.emit("get_currentMove", { move: { player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) } });
     })
 
     socket.on('resign', ({ roomId, reason }) => {
-        io.to(roomId).emit('game-ended', { reason });
-    })
+        const game = chessGameState.get(roomId);
+        if (!game) {
+            console.warn("No game found for roomId:", roomId);
+            return;
+        }
+
+        const winner = game.player1.id === Number(socket.userId)
+            ? game.player2.color
+            : game.player1.color;
+
+        endGame(game.player1.socket, game.player2.socket, roomId, reason, winner);
+        socket.to(roomId).emit('game-ended', { reason });
+    });
 
 })
 

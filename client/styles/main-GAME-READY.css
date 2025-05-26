@@ -447,3 +447,53 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background-color: #666;
 }
+
+/* PAWN SELECTION */
+
+
+.pawnSelection {
+    position:fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    padding: 30px 40px;
+    text-align: center;
+    z-index: 999;
+    max-width: 400px;
+    width: 90%;
+}
+
+.pawnSelection h1 {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    color: #333;
+    font-family: 'Segoe UI',Tahoma, Geneva, Verdana, sans-serif;
+
+}
+
+.figures-restore{
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+
+}
+
+.figures-restore img {
+    width: 60px;
+    height: 60px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.figures-restore img:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 10px #666;
+}
+.hide-pawnSelection{
+    display: none;
+}
