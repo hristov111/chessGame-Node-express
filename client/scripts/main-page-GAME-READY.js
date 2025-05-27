@@ -253,6 +253,7 @@ import { findGame, socket, initializeSocket, resign } from "./router.js";
     const no_resign = document.querySelector('.no-resign');
     const endGame = () => {
         // trigger endGame Modal
+        sessionStorage.setItem("gameHasStarted", "false");
         window.gameHasStarted = false;
         newGameButton.disabled = false;
         show_playersButt.disabled = false;
@@ -295,12 +296,11 @@ import { findGame, socket, initializeSocket, resign } from "./router.js";
         sessionStorage.setItem("reloaded", "true");
     })
 
-    if (sessionStorage.getItem("reloaded") && window.gameHasStarted) {
+    if (sessionStorage.getItem("reloaded") === "true" && sessionStorage.getItem("gameHasStarted") === "true") {
         console.log(actualUser.value.id);
         socket.emit("rejoin-room", ({ userId: actualUser.value.id }));
     }
-
-    sessionStorage.removeItem("reloaded");
+    sessionStorage.setItem("reloaded", "false");
     let in_game = false;
     // SECTION FOR SOCKETS LISTENING 
     const opponent_pic = document.querySelector('.person img');
@@ -318,7 +318,7 @@ import { findGame, socket, initializeSocket, resign } from "./router.js";
             in_game = true;
             console.log("game-started");
             socket.emit('start-game', { roomId, opponentId, color, opponent_color, timer });
-            window.gameHasStarted = true;
+            sessionStorage.setItem("gameHasStarted", "true");
             window.dispatchEvent(new Event('game-on'));
             // need to deisable buttons and so on
         });

@@ -5,7 +5,7 @@
 //     console.log(`connected with ${socket.id}`);
 // })
 
-import { socket, sendMove } from "./router.js";
+import { socket, sendMove,signalForCheck } from "./router.js";
 import { calculateTimer } from "/scripts/utils/utils.js"
 
 
@@ -436,16 +436,20 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         if (parentHTML?.firstElementChild) parentHTML.firstElementChild.remove();
         if (enemyFig?.image_path && enemyHTML?.firstElementChild) enemyHTML.firstElementChild.remove();
 
-        let enemy_img = document.createElement("img");
-        enemy_img.src = parentFig.image_path;
-        enemy_img.width = 83;
-        enemy_img.height = 83;
-        enemyHTML.appendChild(enemy_img);
-
         table[from] = Figure.create("", "", from);
-        parentFig.position = to;
-        table[to] = parentFig;
+        table[to] = Figure.create(parentFig.type, parentFig.color, to);
     };
+
+    const putfigure = (from, figureToPut, figure) => {
+        const parentHTML = findHtmlelementByIDX(figure._position);
+        const fromHTML = findHtmlelementByIDX(from);
+        table[Number(from)] = Figure.create('', '', Number(from));
+        if (parentHTML?.firstElementChild) parentHTML.firstElementChild.remove();
+        if (fromHTML?.firstElementChild) fromHTML.firstElementChild.remove();
+        console.log(figureToPut, figure);
+        table[figure._position] = Figure.create(figureToPut.type, figureToPut.color, figure._position);
+
+    }
 
     const makeMove = (event) => {
         let enemy_pos = Number(event.currentTarget.classList[1]);
@@ -455,23 +459,29 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         let enemy_idx = table.indexOf(enemy_fig);
         let parent_idx = table.indexOf(parent_fig);
         let rebirth = false;
-
+        if (parent_fig.type === "pawn" && enemy_fig.position >= 0 && enemy_fig.position <= 7) rebirth = true;
         if (last_button?.firstElementChild) last_button.firstElementChild.remove();
         if (enemy_fig?.image_path && event.currentTarget.firstElementChild)
             event.currentTarget.firstElementChild.remove();
 
-        let enemy_img = document.createElement("img");
-        enemy_img.src = parent_fig.image_path;
-        enemy_img.width = 83;
-        enemy_img.height = 83;
-        event.currentTarget.appendChild(enemy_img);
 
         table[parent_idx] = Figure.create("", "", parent_pos);
-        parent_fig.position = enemy_pos;
-        table[enemy_idx] = parent_fig;
+        table[enemy_idx] = Figure.create(parent_fig.type, parent_fig.color, enemy_pos)
+
         sendMove(GLroomId, turn, parent_pos, enemy_pos, enemy_fig, parent_fig);
-        turn = GLopponent_color;
-        switchTurns();
+        if (!rebirth) {
+            turn = GLopponent_color;
+            switchTurns();
+        }
+        // check for check
+        const newFigure = table[enemy_idx];
+        const moves = newFigure.calculateMoves();
+        moves.forEach(el => {
+            if(el.type === 'king'){
+                // we have a check here
+                signalForCheck(GLroomId,GLmy_color,el);
+            }
+        })
 
         untoggleButton();
     };
@@ -549,57 +559,32 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             }
         }
     }
-    let elements = ["rook", "horse", "bishop"]
     const align_opponnet = (color) => {
-        table.push(new Queen(color, 3));
-        table.push(new King(color, 4));
-        for (let i = 0, j = 7; i < elements.length && j > 4; i++, j--) {
-            let pieceClass;
-
-            switch (elements[i]) {
-                case "rook":
-                    pieceClass = Rook;
-                    break;
-                case "bishop":
-                    pieceClass = Bishop;
-                    break;
-                default:
-                    pieceClass = Horse;
-                    break;
-            }
-            table.push(new pieceClass(color, i));
-            table.push(new pieceClass(color, j));
-        }
+        table.push(Figure.create("rook", color, 0));
+        table.push(Figure.create("horse", color, 1));
+        table.push(Figure.create("bishop", color, 2));
+        table.push(Figure.create("queen", color, 3));
+        table.push(Figure.create("king", color, 4));
+        table.push(Figure.create("bishop", color, 5));
+        table.push(Figure.create("horse", color, 6));
+        table.push(Figure.create("rook", color, 7));
         for (let i = 8; i < 16; ++i) {
             table.push(new Pawn(color, i));
         }
 
     }
     const align_me = (color) => {
-        table.push(new Queen(color, 59));
-        table.push(new King(color, 60));
-        let curr = 0;
-        for (let i = 56, j = 63; i < 59, j > 60; i++, j--) {
-            let pieceClass;
-
-            switch (elements[curr]) {
-                case "rook":
-                    pieceClass = Rook;
-                    break;
-                case "bishop":
-                    pieceClass = Bishop;
-                    break;
-                default:
-                    pieceClass = Horse;
-                    break;
-            }
-            table.push(new pieceClass(color, i));
-            table.push(new pieceClass(color, j));
-            curr++;
-        }
         for (let i = 48; i < 56; i++) {
             table.push(new Pawn(color, i));
         }
+        table.push(Figure.create("rook", color, 56));
+        table.push(Figure.create("horse", color, 57));
+        table.push(Figure.create("bishop", color, 58));
+        table.push(new Queen(color, 59));
+        table.push(new King(color, 60));
+        table.push(Figure.create("bishop", color, 61));
+        table.push(Figure.create("horse", color, 62));
+        table.push(Figure.create("rook", color, 63));
     }
 
     function alignStart(opponent_color, my_color) {
@@ -649,6 +634,29 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     const pawnSelectionModal = document.querySelector('.pawnSelection');
     const figureRestoreDiv = document.querySelector('.figures-restore');
 
+    const pawnAtEndsituation = ({ roomId, player, from, posToSwap, captured }) => {
+        pawnSelectionModal.classList.remove('hide-pawnSelection');
+        console.log(roomId, player, from, posToSwap, captured );
+        captured.forEach(el => {
+            const img = document.createElement('img');
+            img.src = el.image_path
+            figureRestoreDiv.appendChild(img);
+            img.addEventListener('click', () => {
+                pawnSelectionModal.classList.add('hide-pawnSelection');
+                figureRestoreDiv.innerHTML = '';
+                putfigure(from, el, posToSwap);
+                console.log(posToSwap);
+                socket.emit("swapFigures", ({ roomId, player, from, chosenElement: el, posToSwap }));
+                turn = GLopponent_color;
+                switchTurns();
+                sessionStorage.setItem("pawnAtEnd", "false");
+                sessionStorage.removeItem("pawnAtEndData");
+            })
+
+        })
+    }
+
+
 
     const InitializeSocketEvents = () => {
         socket.off('game-ready');
@@ -681,21 +689,13 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             else calculateTimer(blackTime, current_Timer);
 
         })
-        socket.on("pawnAtEnd", ({roomId,player,posToSwap, captured }) => {
+        socket.on("pawnAtEnd", ({ roomId, player, from, posToSwap, captured }) => {
             // show the screen so user can choose a figure
-            pawnSelectionModal.classList.remove('hide-pawnSelection');
-            captured.forEach(el => {
-                const img = document.createElement('img');
-                img.src = el.image_path
-                figureRestoreDiv.appendChild(img);
-                img.addEventListener('click', () => {
-                    pawnSelectionModal.classList.add('hide-pawnSelection');
-                    socket.emit("swapFigures", ({roomId,player,chosenElement,posToSwap}));
-                })
-
-            })
+            sessionStorage.setItem("pawnAtEnd", "true");
+            sessionStorage.setItem("pawnAtEndData", JSON.stringify({ roomId, player, from, posToSwap, captured }))
+            pawnAtEndsituation({ roomId, player, from, posToSwap, captured });
         })
-        socket.on("syncTable", ({my_table}) => {
+        socket.on("syncTable", ({ my_table }) => {
             renderFromTable(my_table);
         })
         socket.off("get_currentMove");
@@ -708,14 +708,20 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         // we will threat from to with indexes
         // here we need to switch timers 
         socket.off("opponentMove");
-        socket.on('opponentMove', (data)  => {
-            const {from, to, currentTurn, dontSwitch=false,dontMove = false }  = data;
-            if (!dontSwitch) {
-                console.log("moving opponent");
-                turn = currentTurn;
-                switchTurns();
-            }
-            if(!dontMove)makeOpponentMove(from, to);
+        socket.on('opponentMove', (data) => {
+            const { from, to, currentTurn } = data;
+            console.log("moving opponent");
+            makeOpponentMove(from, to);
+            turn = currentTurn;
+            switchTurns();
+
+        })
+
+        socket.on("putFigure", (data) => {
+            const { from, chosenElement, posToSwap, currentTurn } = data;
+            turn = currentTurn;
+            switchTurns();
+            putfigure(from, chosenElement, posToSwap)
 
         })
         socket.on("time-out", ({ currentTurn }) => {
@@ -756,6 +762,12 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     function onSocketReady() {
         InitializeSocketEvents();
         window.removeEventListener('socket-ready', onSocketReady); // auto-cleanup
+        console.log("socket ready")
+        if (sessionStorage.getItem("pawnAtEnd") === 'true') {
+            console.log("getting paswAtEnd");
+            const data = JSON.parse(sessionStorage.getItem("pawnAtEndData"));
+            pawnAtEndsituation(data);
+        }
     }
 
     if (window.socket) {
@@ -766,7 +778,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     }
 
 
-    if (!window.gameHasStarted) {
+    if (localStorage.getItem("gameHasStarted") === "false" || !localStorage.getItem("gameHasStarted")) {
         createChessBoard();
         alignStart("black", "white");
         console.log(table);

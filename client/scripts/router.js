@@ -209,6 +209,11 @@ function initializeSocket(userId) {
 
 
 // Game actions
+
+
+function signalForCheck(roomId,player,threat) {
+    socket.emit('onCheck', {roomId,player,threat});
+}
 function findGame(userId) {
     socket.emit('find-game', { userId });
 }
@@ -225,7 +230,7 @@ function sendMove(roomId, player, from, to,enemy_fig,parent_fig) {
     console.log(roomId, player, from, to);
     socket.emit('move', {
         roomId,
-        move: { player, from, to }, enemy_fig,parent_fig
+        move: { player, from, to }, enemy_fig
     });
 }
 
@@ -249,4 +254,4 @@ function resign(roomId) {
 
 })();
 
-export { navigate, loadPage,stopGame, navbar, findGame, socket, initializeSocket, sendMove,resign };
+export { navigate, loadPage,stopGame, signalForCheck,navbar, findGame, socket, initializeSocket, sendMove,resign };

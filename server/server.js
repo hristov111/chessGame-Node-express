@@ -37,6 +37,14 @@ const ROOMS = new Map();
 
 const timers = new Map();
 
+const getOthersocketInRoom = async (roomId, socket) => {
+    const socketsInRoom = await io.in(roomId).fetchSockets();
+
+    const otherSocket = socketsInRoom.find(s => s.id !== socket.id);
+    if (otherSocket) return otherSocket;
+    else return undefined;
+}
+
 
 const startServerTimer = (roomId) => {
     const game = chessGameState.get(roomId);
@@ -94,7 +102,8 @@ function flipIndex(idx) {
     return flippedRow * 8 + col;
 }
 
-const endGame = async (socket1, socket2, roomId, reason, winner) => {
+const endGame = async (socket, roomId, reason, winner) => {
+    const otherSocket = await getOthersocketInRoom(roomId, socket);
     clearInterval(timers.get(roomId)?.interval);
     timers.delete(roomId);
     // 
@@ -102,8 +111,8 @@ const endGame = async (socket1, socket2, roomId, reason, winner) => {
     await updateStatus(id, reason);
     await updateEndTime(id, new Date());
     await updateWinner(id, winner);
-    await updatePlayerPlayingState(socket1.userId, false);
-    await updatePlayerPlayingState(socket2.userId, false);
+    await updatePlayerPlayingState(socket.userId, false);
+    await updatePlayerPlayingState(otherSocket.userId, false);
     ROOMS.delete(roomId);
     chessGameState.delete(roomId)
 
@@ -122,34 +131,124 @@ const endGame = async (socket1, socket2, roomId, reason, winner) => {
 }
 
 const changeTablePos = (table, from, to) => {
-    let playerFrom;
-    let playerTo;
-    let count = 0;
-    for (let element of table) {
-        if (element._position === from) {
-            playerFrom = element;
-            count++;
-        } else if (element._position === to) {
-            playerTo = element;
-            count++;
-        }
-        if (count === 2) break;
-    }
+    const playerFrom = getElementFromTable(table, from);
+    const playerTo = getElementFromTable(table, to);
+
     if (!playerFrom || !playerTo) {
         console.warn("Invalid move: one or both positions not found:", from, to);
         return;
     }
-    // GOING ->>>>
+
     playerTo.image_path = playerFrom.image_path;
     playerTo.color = playerFrom.color;
     playerTo.type = playerFrom.type;
     playerTo.enemy_color = playerFrom.enemy_color;
-    //
+
+    playerFrom.image_path = '';
     playerFrom.color = '';
     playerFrom.type = '';
-    playerFrom.image_path = '';
+    playerFrom.enemy_color = '';
+
+};
+
+const changeTablePosObject = (table, from, to) => {
+    const playerTo = getElementFromTable(table, to._position);
+    playerTo.image_path = from.image_path;
+    playerTo.color = from.color;
+    playerTo.type = from.type;
+    playerTo.enemy_color = from.enemy_color;
 }
 
+const getElementFromTable = (table, pos) => {
+    for (let el of table) {
+        if (Number(el._position) === Number(pos)) return el;
+    }
+    return undefined;
+}
+
+const addCaptured = (roomId, player, object) => {
+    if (object.type !== '') {
+        const game = chessGameState.get(roomId);
+        const captured = player === 'white' ? game.capturedwhite : game.capturedBlack;
+        captured.push(object);
+    }
+}
+
+const checkIfPawnAtEnd = (roomId, socket, player,from, to) => {
+    const game = chessGameState.get(roomId);
+    const tableToCheck = player === 'white' ? game.currentTableWhite : game.currentTableBlack;
+    const captured = player === 'white' ?  game.capturedBlack : game.capturedwhite;
+    const toFig = getElementFromTable(tableToCheck, to);
+    if (toFig.type === 'pawn' && (to >= 0 && to <= 7)) {
+        // pawn is at end 
+        console.log("pawn at end");
+        socket.emit("pawnAtEnd", { roomId, player,from, posToSwap: toFig, captured: captured });
+        return true;
+    } else {
+        return false;
+    }
+
+}
+
+const addMovesForDisplayingPanel = (roomId, player, from, to) => {
+    const game = chessGameState.get(roomId);
+    if (player === "white") {
+        game.movesWhite.push({ player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) });
+        game.movesBlack.push({ player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) });
+    } else if (player === 'black') {
+        game.movesBlack.push({ player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) });
+        game.movesWhite.push({ player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) });
+    }
+}
+
+const addMovestoTable = (roomId, player, from, to, isObjects = false) => {
+    console.log("Add Moves to table:",player,from,to,isObjects);
+    const game = chessGameState.get(roomId);
+    if (!isObjects) {
+        if (player === 'white') {
+            changeTablePos(game.currentTableWhite, from, to);
+            changeTablePos(game.currentTableBlack, flipIndex(from), flipIndex(to));
+        } else if (player === 'black') {
+            changeTablePos(game.currentTableBlack, from, to);
+            changeTablePos(game.currentTableWhite, flipIndex(from), flipIndex(to));
+
+        }
+    }else {
+        const newTo = {...to, _position:flipIndex(to._position)}
+        console.log(newTo);
+         if (player === 'white') {
+            changeTablePosObject(game.currentTableWhite, from, to);
+            changeTablePosObject(game.currentTableBlack, from, newTo);
+        } else if (player === 'black') {
+            changeTablePosObject(game.currentTableBlack, from, to);
+            changeTablePosObject(game.currentTableWhite, from, newTo);
+
+        }
+    }
+};
+
+const addMovesToDatabase = async (roomId, player, from, to, id) => {
+    if (player === 'white') {
+        await updateMoves
+            (id, `${player.padEnd(6)} ${positionToAlgebraic(from)} ---> ${positionToAlgebraic(to)}`,
+                `${player.padEnd(6)} ${positionToAlgebraic(flipIndex(from))} ---> ${positionToAlgebraic(flipIndex(to))}`)
+    } else if (player === 'black') {
+        await updateMoves
+            (id, `${player.padEnd(6)} ${positionToAlgebraic(flipIndex(from))} ---> ${positionToAlgebraic(flipIndex(to))}`,
+                `${player.padEnd(6)} ${positionToAlgebraic(from)} ---> ${positionToAlgebraic(to)}`)
+    }
+
+}
+
+
+const updateTimer = (roomId, currentTurn) => {
+    const game = chessGameState.get(roomId);
+    let timer = timers.get(roomId);
+    timer.currentTurn = currentTurn === 'white' ? 'black' : 'white';
+    game.currentTurn = timer.currentTurn;
+    timer.whiteTime = 600;
+    timer.blackTime = 600;
+}
 
 
 io.use((socket, next) => {
@@ -264,8 +363,8 @@ io.on('connection', async (socket) => {
             p1socket.join(roomId);
             p2socket.join(roomId);
             chessGameState.set(roomId, {
-                player1: { id: p1Id, color: 'white', socket: p1socket },
-                player2: { id: p2Id, color: 'black', socket: p2socket },
+                player1: { id: p1Id, color: 'white' },
+                player2: { id: p2Id, color: 'black' },
                 currentTurn: 'black',
                 currentTableWhite: [],
                 currentTableBlack: [],
@@ -372,7 +471,7 @@ io.on('connection', async (socket) => {
                     if (value.player1.id === socket.userId || value.player2.id === socket.userId) {
                         const winner = socket.userId === value.player1.id ? value.player1.color :
                             value.player2.color
-                        endGame(value.player1.socket, value.player2.socket, key, "aborted", winner);
+                        endGame(socket, key, "aborted", winner);
                         break;
                     }
                 }
@@ -384,113 +483,40 @@ io.on('connection', async (socket) => {
         }, 1000)
 
     });
-    socket.on("swapFigures", ({ roomId, player, chosenElement, posToSwap }) => {
+    socket.on("swapFigures", async ({ roomId, player,from,chosenElement, posToSwap }) => {
+        // i need to update postoswap with chosen elelment and thats it 
+        console.log(player,chosenElement,posToSwap);
+        addMovestoTable(roomId, player, chosenElement, posToSwap,true);
+        updateTimer(roomId, player);
         const game = chessGameState.get(roomId);
-        if (!game) return;
+        const posToSwapFlipped = {...posToSwap,_position:flipIndex(posToSwap._position)};
+        // const opponnet_table = player === 'white'?game.currentTableBlack:game.currentTableWhite;
+        socket.to(roomId).emit('putFigure', { from:flipIndex(from),chosenElement,posToSwap:posToSwapFlipped,currentTurn: game.currentTurn });
+    });
 
-        const updatePiece = (piece, newData) => {
-            if (piece) {
-                piece.image_path = newData.image_path;
-                piece.color = newData.color;
-                piece.type = newData.type;
-                piece.enemy_color = newData.enemy_color;
-            }
-        };
-        const whiteSocket = game.player1.color === 'white' ? game.player1.socket : game.player2.socket;
-        const blackSocket = game.player1.color === "black" ? game.player1.socket : game.player2.socket;
-        if (player === 'white') {
-            const whitePiece = game.currentTableWhite.find(el => el._position === posToSwap);
-            const blackPiece = game.currentTableBlack.find(el => el._position === flipIndex(posToSwap));
-            updatePiece(whitePiece, chosenElement);
-            updatePiece(blackPiece, chosenElement);
-            blackSocket.emit("opponentMove", {
-                from: null,
-                to: null,
-                currentTurn: "black",
-                dontSwitch: false,
-                dontMove: true
-            });
-        } else if (player === 'black') {
-            const whitePiece = game.currentTableWhite.find(el => el._position === flipIndex(posToSwap));
-            const blackPiece = game.currentTableBlack.find(el => el._position === posToSwap);
-            updatePiece(whitePiece, chosenElement);
-            updatePiece(blackPiece, chosenElement);
-            whiteSocket.emit("opponentMove", {
-                from: null,
-                to: null,
-                currentTurn: "white",
-                dontSwitch: false,
-                dontMove: true
-            });
-        }
-        let timer = timers.get(roomId);
-        timer.currentTurn = player === 'white' ? 'black' : 'white';
-        game.currentTurn = timer.currentTurn;
-        timer.whiteTime = 600;
-        timer.blackTime = 600;
-        // now sync tables timers
-        whiteSocket.emit("syncTable", { my_table: game.currentTableWhite });
-        blackSocket.emit("syncTable", { my_table: game.currentTableBlack });
+    socket.on('onCheck', ({roomId,player,threat}) => {
+        
     })
 
-    // socket.on('update-tables', ({roomId,player,table}) => {
-    //     const game = chessGameState.get(roomId);
-    //     if (game && player === 'white') {
-    //         console.log("Set table white");
-    //         game.currentTableWhite = table;
-    //     }
-    //     else if (game && player === 'black') {
-    //         console.log("Set table black");
-    //         game.currentTableBlack = table;
-    //     }
-    // })
-    socket.on('move', async ({ roomId, move: { player, from, to }, enemy_fig, parent_fig }) => {
+    socket.on('move', async ({ roomId, move: { player, from, to }, enemy_fig }) => {
         const game = chessGameState.get(roomId);
         const id = ROOMS.get(roomId);
-        let dontSwitch = false;
-        if (player === 'white') {
-            if (parent_fig.type === 'pawn' && to >= 0 && to <= 7) {
-                dontSwitch = true;
-                socket.emit("pawnAtEnd", ({ roomId, player, to, captured: game.capturedBlack }));
-            }
-            if (enemy_fig.type != '') game.capturedwhite.push(enemy_fig);
-            game.movesWhite.push({ player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) });
-            game.movesBlack.push({ player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) });
-            changeTablePos(game.currentTableWhite, from, to);
-            changeTablePos(game.currentTableBlack, flipIndex(from), flipIndex(to));
-            await updateMoves
-                (id, `${player.padEnd(6)} ${positionToAlgebraic(from)} ---> ${positionToAlgebraic(to)}`,
-                    `${player.padEnd(6)} ${positionToAlgebraic(flipIndex(from))} ---> ${positionToAlgebraic(flipIndex(to))}`)
+        // add if captured
+        addCaptured(roomId, player, enemy_fig);
+        // add for displaying panel
+        addMovesForDisplayingPanel(roomId, player, from, to);
+        // add to table
+        addMovestoTable(roomId, player, from, to);
+        // add to database
+        await addMovesToDatabase(roomId, player, from, to, id);
 
-        } else if (player === 'black') {
-            if (parent_fig.type === 'pawn' && to >= 0 && to <= 7) {
-                dontSwitch = true;
-                socket.emit("pawnAtEnd", ({ roomId, player, to, captured: game.capturedBlack }));
 
-            }
-            if (enemy_fig.type != '') game.capturedBlack.push(enemy_fig);
-            game.movesBlack.push({ player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) });
-            game.movesWhite.push({ player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) });
-            changeTablePos(game.currentTableBlack, from, to);
-            changeTablePos(game.currentTableWhite, flipIndex(from), flipIndex(to));
-            await updateMoves
-                (id, `${player.padEnd(6)} ${positionToAlgebraic(flipIndex(from))} ---> ${positionToAlgebraic(flipIndex(to))}`,
-                    `${player.padEnd(6)} ${positionToAlgebraic(from)} ---> ${positionToAlgebraic(to)}`)
+
+        if (!checkIfPawnAtEnd(roomId, socket, player, Number(from), Number(to))) {
+            console.log("figure not at end");
+            updateTimer(roomId, player);
+            socket.to(roomId).emit('opponentMove', { from: flipIndex(from), to: flipIndex(to), currentTurn: game.currentTurn });
         }
-
-        // freeze time if its on rebirth
-        if (dontSwitch) {
-            let timer = timers.get(roomId);
-            timer.currentTurn = player === 'white' ? 'black' : 'white';
-            game.currentTurn = timer.currentTurn;
-            timer.whiteTime = 600;
-            timer.blackTime = 600;
-        }
-        console.log("Moving: " + player);
-
-        // let the opponent know so he can display it on the board
-        socket.to(roomId).emit('opponentMove', { from: flipIndex(from), to: flipIndex(to), currentTurn: game.currentTurn, dontSwitch });
-        // for displaying moves in the right panel
         socket.to(roomId).emit("get_currentMove", { move: { player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) } });
         socket.emit("get_currentMove", { move: { player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) } });
     })
@@ -506,7 +532,7 @@ io.on('connection', async (socket) => {
             ? game.player2.color
             : game.player1.color;
 
-        endGame(game.player1.socket, game.player2.socket, roomId, reason, winner);
+        endGame(roomId, socket, reason, winner);
         socket.to(roomId).emit('game-ended', { reason });
     });
 
