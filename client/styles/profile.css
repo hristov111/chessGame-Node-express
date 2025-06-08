@@ -193,3 +193,19 @@ body {
 .btn.update:hover {
   background-color: #218838;
 }
+
+
+/* FRIEND SECTION */
+
+
+.friend-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 1rem;
+  max-height: 80vh;
+  overflow-y: auto;
+  background-color: #f1f1f11e;
+  border-radius: 8px;
+  width: 500px;
+}

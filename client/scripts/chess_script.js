@@ -5,7 +5,7 @@
 //     console.log(`connected with ${socket.id}`);
 // })
 
-import { socket, sendMove,signalForCheck } from "./router.js";
+import { socket, sendMove } from "./router.js";
 import { calculateTimer } from "/scripts/utils/utils.js"
 
 
@@ -15,17 +15,78 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     let GLmy_color;
     let GLopponent_color;
     let GLroomId;
+    let check = false;
+    let allowedMoves = {};
 
     const movesDisplay = document.querySelector('.game-started-moves');
 
+    const showChessAlert = (message) => {
+        const modal = document.getElementById('alertModal');
+        modal.textContent = message;
+        modal.classList.add('show');
 
-    const displayMoves = (display, from, to, color) => {
+
+        setTimeout(() => {
+            modal.classList.remove('show');
+        }, 2000);
+
+    }
+
+    const blinkRedJS = (el, times = 3, interval = 3000) => {
+        let count = 0;
+        const originalColor = el.style.backgroundColor;
+        const blink = setInterval(() => {
+            el.style.backgroundColor = (el.style.backgroundColor === 'red') ? originalColor : "red";
+            count++;
+            if (count > times * 2) {
+                clearInterval(blink);
+                el.style.backgroundColor = originalColor;
+            }
+        }, interval);
+
+    }
+
+
+    const displayMoves = (display, from, to, color, check) => {
+        const checked = color === "white" ? "black" : "white";
         const h1 = document.createElement('h1');
+        if (check) {
+            const h1Check = document.createElement('h1');
+            h1Check.innerText = `${checked.padEnd(6)} is in check`;
+            display.appendChild(h1);
+
+        }
         h1.innerText = `${color.padEnd(6)} ${from} ---> ${to}`;
         display.appendChild(h1);
     }
 
     const user = JSON.parse(localStorage.getItem("guestUser"));
+
+    const getFiguresByColor = (color, table_toUse) => {
+        let colorTable = [];
+        table_toUse.forEach(el => {
+            if (el.color === color) {
+                colorTable.push(el);
+            }
+        })
+        return colorTable;
+    }
+
+    const simulateMoveForCheck = (figure, move, copyTable) => {
+        const copy = copyTable.map(f => f ? Figure.create(f.type, f.color, f.position) : null);
+        // simulate the move
+        copy[move.position] = Figure.create(figure.type, figure.color, move.position);
+        copy[figure.position] = Figure.create('', '', figure.position);
+        const opponentFigures = getFiguresByColor(GLopponent_color, copy);
+        // now take the 
+        for (const el of opponentFigures) {
+            const moves = el.calculateMoves(copy);
+            for (const move of moves) {
+                if (move.type === 'king') return false;
+            }
+        }
+        return true;
+    }
 
 
 
@@ -52,17 +113,23 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             this.color = color;
             this.position = position;
             this.type = type;
-            if (color !== "" && type !== "") {
-                this.image_path = color === "black" ? figures.takeBlack(type) : figures.takeWhite(type);
-                this.enemy_color = color === "black" ? "white" : "black";
-                let square_divs = document.querySelectorAll('.square');
-                let figure_img = document.createElement("img");
-                figure_img.src = this.image_path;
-                figure_img.width = 83;
-                figure_img.height = 83;
-                square_divs[this.position].appendChild(figure_img);
-            }
+            this.iswhite = this.color === 'white';
 
+        }
+        render() {
+            if (this.color !== "" && this.type !== "") {
+                this.image_path = this.color === "black" ? figures.takeBlack(this.type) : figures.takeWhite(this.type);
+                this.enemy_color = this.color === "black" ? "white" : "black";
+
+                let square = document.querySelector(`.square[data-index="${this.position}"]`);
+                if (square) {
+                    let figure_img = document.createElement("img");
+                    figure_img.src = this.image_path;
+                    figure_img.width = 83;
+                    figure_img.height = 83;
+                    square.appendChild(figure_img);
+                }
+            }
         }
         static create(type, color, position) {
             if (type === "king") return new King(color, position);
@@ -73,7 +140,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             else if (type === "pawn") return new Pawn(color, position);
             else return new Figure("", "", position);
         }
-        calculateMoves() { }
+        calculateMoves(table) { }
         get available_positions() {
             return this.#available_positions;
         }
@@ -91,15 +158,18 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             this._image_path = img;
         }
 
-        static getElementFromTable = (idx) => {
+        static getElementFromTable = (idx, table) => {
             if (idx > 63 || idx < 0) return -1;
             return table.find(el => el.position === idx) || -1;
         }
-        static checkLeftBounds = (pos) => {
-            return pos % 8 === 0 ? true : false;
+        static checkLeftBounds(pos) {
+            // True if the square is on the 'a' file (left edge)
+            return pos % 8 === 0;
         }
-        static checkRightBounds = (pos) => {
-            return (pos + 1) % 8 === 0 ? true : false;
+
+        static checkRightBounds(pos) {
+            // True if the square is on the 'h' file (right edge)
+            return (pos + 1) % 8 === 0;
         }
         static concurPosition = (element, color) => {
             if (element.type === "" || element.color !== color) return true
@@ -109,61 +179,40 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             if (element.enemy_color === color) return true;
             else return false;
         }
-        static movesFromLeft = (pos) => {
-            let count = 0;
-            let i = pos - 1;
-            if (this.checkLeftBounds(pos)) return count;
-            while (!this.checkLeftBounds(i)) {
-                i--;
-                count++;
-            }
-            count++;
-            return count;
-        }
-        static movesFromRight = (pos) => {
-            let count = 0;
-            let i = pos + 1;
-            if (this.checkRightBounds(pos)) return count;
-            while (!this.checkRightBounds(i)) {
-                i++;
-                count++;
-            }
-            count++;
-            return count;
+        static movesFromLeft(pos) {
+            return pos % 8; // Distance to the left edge (0 to 7)
         }
 
-        static movesFromDown = (pos) => {
-            let count = 0;
-            let i = pos;
-            if (i > 55) return count;
-            while (true) {
-                i += 8;
-                if (i > 63 || i > 55) break;
-                count++;
-            }
+        static movesFromRight(pos) {
+            return 7 - (pos % 8); // Distance to the right edge (0 to 7)
         }
-        static movesFromUp = (pos) => {
-            let count = 0;
-            let i = pos;
-            if (i < 8) return count;
-            while (true) {
-                i -= 8;
-                if (i < 0 || i < 8) break;
-                count++;
-            }
+
+        static movesFromUp(pos) {
+            return Math.floor(pos / 8); // How many rows are above
         }
-        static getMoves(color, currentPos, step, first_Condition, second_Condition, third_Condition) {
+
+        static movesFromDown(pos) {
+            return 7 - Math.floor(pos / 8); // How many rows are below
+        }
+        static getMoves(color, currentPos, step, first_Condition, table) {
             let moves = [];
-            let enemy;
+
             for (let i = currentPos + step; first_Condition(i, currentPos); i += step) {
-                enemy = this.getElementFromTable(i);
-                if (second_Condition(enemy, color, currentPos)) {
-                    moves.push(enemy);
-                    if (third_Condition(enemy, color, i)) break;
+                const target = this.getElementFromTable(i, table);
+
+                if (target.type === "") {
+                    // Empty square: can move through
+                    moves.push(target);
+                } else if (target.color !== color) {
+                    // Enemy piece: can capture, but stop after
+                    moves.push(target);
+                    break;
                 } else {
+                    // Friendly piece: cannot move or continue
                     break;
                 }
             }
+
             return moves;
         }
 
@@ -171,7 +220,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
 
     }
     const StraightMover = {
-        getStraightMoves(color, pos) {
+        getStraightMoves(color, pos, table) {
             let moves = [];
 
             // Up
@@ -180,131 +229,128 @@ import { calculateTimer } from "/scripts/utils/utils.js"
                 pos,
                 -8,
                 (i) => i >= 0,
-                (up, c) => Figure.concurPosition(up, c),
-                (up, c) => Figure.isEnemy(up, c)
+                table
             ));
+
+            // Down
             moves = moves.concat(Figure.getMoves(
                 color,
                 pos,
                 8,
                 (i) => i < 64,
-                (down, c) => Figure.concurPosition(down, c),
-                (down, c) => Figure.isEnemy(down, c)
-
+                table
             ));
 
+            // Left
             moves = moves.concat(Figure.getMoves(
                 color,
                 pos,
                 -1,
-                // args[0] will be the i
                 (i, pos) => i >= pos - Figure.movesFromLeft(pos),
-                (left, c) => Figure.concurPosition(left, c),
-                (left, c) => Figure.isEnemy(left, c)
-            ))
+                table
+            ));
 
-
-
+            // Right
             moves = moves.concat(Figure.getMoves(
                 color,
                 pos,
                 1,
                 (i, pos) => i <= pos + Figure.movesFromRight(pos),
-                (right, c) => Figure.concurPosition(right, c),
-                (right, c) => Figure.isEnemy(right, c)
-            ))
+                table
+            ));
+
             return moves;
         }
     }
     const DiagonalMover = {
-        getDiagonalMoves(color, pos) {
+        getDiagonalMoves(color, pos, table) {
             let moves = [];
 
-            if (!Figure.checkLeftBounds(pos)) {
-                moves = moves.concat(Figure.getMoves(
-                    color,
-                    pos,
-                    -9,
-                    (i) => i >= 0,
-                    (up_left_enemy, my_color) => Figure.concurPosition(up_left_enemy, my_color),
-                    (pos, color, i) => Figure.isEnemy(pos, color) || Figure.checkLeftBounds(i)
-                ))
+            // Up-Left (-9)
+            moves = moves.concat(Figure.getMoves(
+                color,
+                pos,
+                -9,
+                (i, p) => i >= 0 && Figure.movesFromLeft(i) < Figure.movesFromLeft(p),
+                table
+            ));
 
-                moves = moves.concat(Figure.getMoves(
-                    color,
-                    pos,
-                    7,
-                    (i) => i < 64,
-                    (down_left, c) => Figure.concurPosition(down_left, c),
-                    (pos, color, i) => Figure.isEnemy(pos, color) || Figure.checkLeftBounds(i)
-                ))
-            }
+            // Down-Left (+7)
+            moves = moves.concat(Figure.getMoves(
+                color,
+                pos,
+                7,
+                (i, p) => i < 64 && Figure.movesFromLeft(i) < Figure.movesFromLeft(p),
+                table
+            ));
 
-            if (!Figure.checkRightBounds(pos)) {
-                moves = moves.concat(Figure.getMoves(
-                    color,
-                    pos,
-                    -7,
-                    (i) => i >= 0,
-                    (up_right_enemy, my_color) => Figure.concurPosition(up_right_enemy, my_color),
-                    (pos, color, i) => Figure.isEnemy(pos, color) || Figure.checkRightBounds(i)
-                ))
+            // Up-Right (-7)
+            moves = moves.concat(Figure.getMoves(
+                color,
+                pos,
+                -7,
+                (i, p) => i >= 0 && Figure.movesFromRight(i) < Figure.movesFromRight(p),
+                table
+            ));
 
+            // Down-Right (+9)
+            moves = moves.concat(Figure.getMoves(
+                color,
+                pos,
+                9,
+                (i, p) => i < 64 && Figure.movesFromRight(i) < Figure.movesFromRight(p),
+                table
+            ));
 
-                moves = moves.concat(Figure.getMoves(
-                    color,
-                    pos,
-                    9,
-                    (i) => i < 64,
-                    (down_right, c) => Figure.concurPosition(down_right, c),
-                    (pos, color, i) => Figure.isEnemy(pos, color) || Figure.checkRightBounds(i)
-                ))
-            }
             return moves;
         }
     }
     class Pawn extends Figure {
-
         constructor(color, position) {
             super("pawn", color, position);
         }
-        calculateMoves() {
-            // let moves = [];
-            let oneStepPos = Figure.getElementFromTable(this.position - 8);
 
+        calculateMoves(table) {
+            const direction = this.color === 'white' ? -1 : 1;
+            const startRow = this.color === 'white' ? 6 : 1; // rows 6 (index 48–55) or 1 (8–15)
+            const pos = this.position;
+            const available_moves = [];
 
+            // One step forward
+            const oneStep = Figure.getElementFromTable(pos + 8 * direction, table);
+            if (oneStep !== -1 && oneStep.type === "") {
+                available_moves.push(oneStep);
 
-
-            let available_moves = [];
-            if (oneStepPos !== -1) {
-                if (oneStepPos.type === "") available_moves.push(oneStepPos);
-                let twoStepPos = Figure.getElementFromTable(this.position - 16);
-                if (twoStepPos !== -1 && twoStepPos.type === "" && this.position > 47) available_moves.push(twoStepPos);
-
+                // Two steps forward from starting row
+                const isStartRow = Math.floor(pos / 8) === startRow;
+                const twoStep = Figure.getElementFromTable(pos + 16 * direction, table);
+                if (isStartRow && twoStep !== -1 && twoStep.type === "") {
+                    available_moves.push(twoStep);
+                }
             }
-            let right = Figure.getElementFromTable(this.position - 7);
-            let left = Figure.getElementFromTable(this.position - 9);
-            if (Figure.checkLeftBounds(this.position)) {
-                if (right.color === this.enemy_color) available_moves.push(right);
+
+            // Diagonal captures
+            const rightCapture = Figure.getElementFromTable(pos + 9 * direction, table);
+            const leftCapture = Figure.getElementFromTable(pos + 7 * direction, table);
+
+            if (Figure.movesFromRight(pos) > 0 && rightCapture !== -1 && rightCapture.color === this.enemy_color) {
+                available_moves.push(rightCapture);
             }
-            else if (Figure.checkRightBounds(this.position)) {
-                if (left.color === this.enemy_color) available_moves.push(left);
+
+            if (Figure.movesFromLeft(pos) > 0 && leftCapture !== -1 && leftCapture.color === this.enemy_color) {
+                available_moves.push(leftCapture);
             }
-            else {
-                if (right.color === this.enemy_color) available_moves.push(right);
-                if (left.color === this.enemy_color) available_moves.push(left);
-            }
+
             return available_moves;
         }
-
     }
     class Queen extends Figure {
         constructor(color, position) {
             super("queen", color, position);
             Object.assign(this, StraightMover, DiagonalMover);
         }
-        calculateMoves() {
-            return [...this.getStraightMoves(this.color, this.position), ...this.getDiagonalMoves(this.color, this.position)]
+        calculateMoves(table) {
+            return [...this.getStraightMoves(this.color, this.position, table), ...this.getDiagonalMoves(this.color, this.position, table)]
         }
     }
     class King extends Figure {
@@ -312,17 +358,18 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             super("king", color, position);
         }
 
-        calculateMoves() {
+        calculateMoves(table) {
             let moves = [];
+
             // in order to have a left new need to have 1 pos from left so 
-            let left = Figure.getElementFromTable(this.position - 1);
-            let up_left = Figure.getElementFromTable(this.position - 9);
-            let down_left = Figure.getElementFromTable(this.position + 7);
-            let right = Figure.getElementFromTable(this.position + 1);
-            let up_right = Figure.getElementFromTable(this.position - 7);
-            let down_right = Figure.getElementFromTable(this.position + 9);
-            let up = Figure.getElementFromTable(this.position - 8);
-            let down = Figure.getElementFromTable(this.position + 8);
+            let left = Figure.getElementFromTable(this.position - 1, table);
+            let up_left = Figure.getElementFromTable(this.position - 9, table);
+            let down_left = Figure.getElementFromTable(this.position + 7, table);
+            let right = Figure.getElementFromTable(this.position + 1, table);
+            let up_right = Figure.getElementFromTable(this.position - 7, table);
+            let down_right = Figure.getElementFromTable(this.position + 9, table);
+            let up = Figure.getElementFromTable(this.position - 8, table);
+            let down = Figure.getElementFromTable(this.position + 8, table);
 
 
             if (Figure.movesFromLeft(this.position) >= 1 && Figure.concurPosition(left, this.color)) moves.push(left);
@@ -342,8 +389,8 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             super("bishop", color, position);
             Object.assign(this, DiagonalMover);
         }
-        calculateMoves() {
-            return this.getDiagonalMoves(this.color, this.position);
+        calculateMoves(table) {
+            return this.getDiagonalMoves(this.color, this.position, table);
         }
     }
 
@@ -352,16 +399,16 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         constructor(color, position) {
             super("horse", color, position);
         }
-        calculateMoves() {
+        calculateMoves(table) {
             let moves = [];
-            let up_long_left = Figure.getElementFromTable(this.position - 10);
-            let up_long_right = Figure.getElementFromTable(this.position - 6);
-            let down_long_right = Figure.getElementFromTable(this.position + 10);
-            let down_long_left = Figure.getElementFromTable(this.position + 6);
-            let up_short_left = Figure.getElementFromTable(this.position - 17);
-            let up_short_right = Figure.getElementFromTable(this.position - 15);
-            let down_short_right = Figure.getElementFromTable(this.position + 17);
-            let down_short_left = Figure.getElementFromTable(this.position + 15);
+            let up_long_left = Figure.getElementFromTable(this.position - 10, table);
+            let up_long_right = Figure.getElementFromTable(this.position - 6, table);
+            let down_long_right = Figure.getElementFromTable(this.position + 10, table);
+            let down_long_left = Figure.getElementFromTable(this.position + 6, table);
+            let up_short_left = Figure.getElementFromTable(this.position - 17, table);
+            let up_short_right = Figure.getElementFromTable(this.position - 15, table);
+            let down_short_right = Figure.getElementFromTable(this.position + 17, table);
+            let down_short_left = Figure.getElementFromTable(this.position + 15, table);
             let moves_fromLeft = Figure.movesFromLeft(this.position);
             let moves_fromRight = Figure.movesFromRight(this.position);
 
@@ -390,8 +437,8 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             super("rook", color, position);
             Object.assign(this, StraightMover);
         }
-        calculateMoves() {
-            return this.getStraightMoves(this.color, this.position);
+        calculateMoves(table) {
+            return this.getStraightMoves(this.color, this.position, table);
         }
     }
     // Global variables
@@ -422,14 +469,14 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     const findHtmlelementByIDX = (idx) => {
         let square_buttons = document.querySelectorAll('.square');
         for (let square of square_buttons) {
-            if (Number(square.classList[1]) === idx) return square;
+            if (Number(square.dataset.index) === idx) return square;
         }
         return undefined;
     };
 
     const makeOpponentMove = (from, to) => {
-        const parentFig = Figure.getElementFromTable(from);
-        const enemyFig = Figure.getElementFromTable(to);
+        const parentFig = Figure.getElementFromTable(from, table);
+        const enemyFig = Figure.getElementFromTable(to, table);
         const parentHTML = findHtmlelementByIDX(from);
         const enemyHTML = findHtmlelementByIDX(to);
 
@@ -437,51 +484,69 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         if (enemyFig?.image_path && enemyHTML?.firstElementChild) enemyHTML.firstElementChild.remove();
 
         table[from] = Figure.create("", "", from);
+        table[from].render();
         table[to] = Figure.create(parentFig.type, parentFig.color, to);
+        table[to].render();
     };
 
     const putfigure = (from, figureToPut, figure) => {
         const parentHTML = findHtmlelementByIDX(figure._position);
         const fromHTML = findHtmlelementByIDX(from);
         table[Number(from)] = Figure.create('', '', Number(from));
+        table[Number(from)].render();
         if (parentHTML?.firstElementChild) parentHTML.firstElementChild.remove();
         if (fromHTML?.firstElementChild) fromHTML.firstElementChild.remove();
         console.log(figureToPut, figure);
         table[figure._position] = Figure.create(figureToPut.type, figureToPut.color, figure._position);
+        table[figure._position].render();
 
     }
 
     const makeMove = (event) => {
-        let enemy_pos = Number(event.currentTarget.classList[1]);
-        let parent_pos = Number(last_button.classList[1]);
-        let enemy_fig = Figure.getElementFromTable(enemy_pos);
-        let parent_fig = Figure.getElementFromTable(parent_pos);
+        //               const idx = Number(button.dataset.index);
+
+        let enemy_pos = Number(event.currentTarget.dataset.index);
+        let parent_pos = Number(last_button.dataset.index);
+        let enemy_fig = Figure.getElementFromTable(enemy_pos, table);
+        let parent_fig = Figure.getElementFromTable(parent_pos, table);
         let enemy_idx = table.indexOf(enemy_fig);
         let parent_idx = table.indexOf(parent_fig);
         let rebirth = false;
+        let check = false;
+        if (!simulateMoveForCheck(parent_fig, enemy_fig, table)) {
+            blinkRedJS(event.currentTarget, 3, 100);
+            untoggleButton();
+            return;
+        }
+        allowedMoves = {};
         if (parent_fig.type === "pawn" && enemy_fig.position >= 0 && enemy_fig.position <= 7) rebirth = true;
         if (last_button?.firstElementChild) last_button.firstElementChild.remove();
         if (enemy_fig?.image_path && event.currentTarget.firstElementChild)
             event.currentTarget.firstElementChild.remove();
 
+        // simulate the move first if its gonna give check to the other side
 
         table[parent_idx] = Figure.create("", "", parent_pos);
+        table[parent_idx].render();
         table[enemy_idx] = Figure.create(parent_fig.type, parent_fig.color, enemy_pos)
+        table[enemy_idx].render();
 
-        sendMove(GLroomId, turn, parent_pos, enemy_pos, enemy_fig, parent_fig);
+        const newFigure = table[enemy_idx];
+        const moves = newFigure.calculateMoves(table);
+        moves.forEach(el => {
+            if (el.type === 'king') {
+                // we have a check here
+                // signalForCheck(GLroomId, GLmy_color, el);
+                check = true;
+            }
+        })
+
+        sendMove(GLroomId, turn, parent_pos, enemy_pos, enemy_fig, parent_fig, check);
         if (!rebirth) {
             turn = GLopponent_color;
             switchTurns();
         }
         // check for check
-        const newFigure = table[enemy_idx];
-        const moves = newFigure.calculateMoves();
-        moves.forEach(el => {
-            if(el.type === 'king'){
-                // we have a check here
-                signalForCheck(GLroomId,GLmy_color,el);
-            }
-        })
 
         untoggleButton();
     };
@@ -494,11 +559,19 @@ import { calculateTimer } from "/scripts/utils/utils.js"
 
         square_buttonsArray.forEach((button) => {
             button.addEventListener('click', () => {
-                const idx = Number(button.classList[1]);
-                const figure = Figure.getElementFromTable(idx);
-
+                const idx = Number(button.dataset.index);
+                const figure = Figure.getElementFromTable(idx, table);
                 if (figure.type !== "" && figure.color === my_color && turn === my_color) {
                     clicked = true;
+                    if (check && Object.keys(allowedMoves).length) {
+                        let allowed = false;
+                        for (const key of Object.keys(allowedMoves)) {
+                            if (Number(key) === idx) {
+                                allowed = true;
+                            }
+                        }
+                        if (!allowed) return;
+                    }
 
                     if (last_button === button) {
                         untoggleButton();
@@ -509,7 +582,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
 
                     clearLastMovesArray();
 
-                    const moves = figure.calculateMoves();
+                    const moves = check && Object.keys(allowedMoves).length ? allowedMoves[idx] : figure.calculateMoves(table);
 
                     if (moves?.length > 0) {
                         square_buttonsArray.forEach(el => el.style.opacity = "0.5");
@@ -519,7 +592,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
 
                     button.style.opacity = "1";
                     last_moves = moves.map(move => {
-                        let btn = square_buttonsArray.find(butt => Number(butt.classList[1]) === move.position);
+                        let btn = square_buttonsArray.find(butt => Number(butt.dataset.index) === move.position);
                         if (btn) {
                             btn.style.opacity = '1';
                             btn.addEventListener('click', makeMove);
@@ -538,65 +611,75 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         });
     }
 
-    function createChessBoard() {
-        let board = document.querySelector('.ChessBoard');
+    function createChessBoard(my_color) {
+        const board = document.querySelector('.ChessBoard');
         board.innerHTML = '';
-        let id = 0;
+        const iswhite = my_color === 'white';
+
+        let squares = [];
+
         for (let row = 0; row < 8; row++) {
             for (let col = 0; col < 8; col++) {
-                let square = document.createElement("button");
+                const index = row * 8 + col;
+
+                const square = document.createElement("button");
                 square.classList.add("square");
-                square.classList.add(id);
+                square.dataset.index = index;
+
+                // Determine square color
                 if ((row + col) % 2 === 0) {
                     square.classList.add('white');
-                } else square.classList.add('black');
-                if (!turn) {
-                    square.disabled = true;
+                } else {
+                    square.classList.add('black');
                 }
-                board.appendChild(square);
-                id++;
 
+                squares.push(square);
             }
         }
-    }
-    const align_opponnet = (color) => {
-        table.push(Figure.create("rook", color, 0));
-        table.push(Figure.create("horse", color, 1));
-        table.push(Figure.create("bishop", color, 2));
-        table.push(Figure.create("queen", color, 3));
-        table.push(Figure.create("king", color, 4));
-        table.push(Figure.create("bishop", color, 5));
-        table.push(Figure.create("horse", color, 6));
-        table.push(Figure.create("rook", color, 7));
-        for (let i = 8; i < 16; ++i) {
-            table.push(new Pawn(color, i));
-        }
 
-    }
-    const align_me = (color) => {
-        for (let i = 48; i < 56; i++) {
-            table.push(new Pawn(color, i));
+        // Render squares in normal or reversed order
+        const orderedSquares = iswhite ? squares : squares.reverse();
+
+        for (const square of orderedSquares) {
+            board.appendChild(square);
         }
-        table.push(Figure.create("rook", color, 56));
-        table.push(Figure.create("horse", color, 57));
-        table.push(Figure.create("bishop", color, 58));
-        table.push(new Queen(color, 59));
-        table.push(new King(color, 60));
-        table.push(Figure.create("bishop", color, 61));
-        table.push(Figure.create("horse", color, 62));
-        table.push(Figure.create("rook", color, 63));
     }
 
-    function alignStart(opponent_color, my_color) {
+    const align_row = (color, offset) => {
+        table.push(Figure.create("rook", color, offset));
+        table.push(Figure.create("horse", color, offset + 1));
+        table.push(Figure.create("bishop", color, offset + 2));
+        table.push(Figure.create("queen", color, offset + 3));
+        table.push(Figure.create("king", color, offset + 4));
+        table.push(Figure.create("bishop", color, offset + 5));
+        table.push(Figure.create("horse", color, offset + 6));
+        table.push(Figure.create("rook", color, offset + 7));
+    }
+    const align_pawns = (color, offset) => {
+        for (let i = 0; i < 8; i++) {
+            table.push(new Pawn(color, offset + i));
+
+        }
+    }
+
+    function alignStart(my_color) {
         table = [];
-        align_opponnet(opponent_color);
+
+        // Always align the board logically the same way
+        align_row("black", 0);
+        align_pawns("black", 8);
+
         for (let i = 16; i < 48; i++) {
             table.push(new Figure("", "", i));
         }
-        align_me(my_color);
 
+        align_pawns("white", 48);
+        align_row("white", 56);
 
+        // Visual rotation should be handled separately
+        table.forEach(el => el.render());
     }
+
     const setNextTurn = () => {
         if (current_Timer.classList.contains("opponent-timer")) {
             current_Timer = document.querySelector('.my-time');
@@ -613,8 +696,9 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     const renderFromTable = (newTable) => {
         table = [];
         for (let record of newTable) {
-            table.push(Figure.create(record.type, record.color, record._position));
-
+            const fig = Figure.create(record.type, record.color, record._position);
+            table.push(fig);
+            fig.render();
         }
     }
 
@@ -636,7 +720,6 @@ import { calculateTimer } from "/scripts/utils/utils.js"
 
     const pawnAtEndsituation = ({ roomId, player, from, posToSwap, captured }) => {
         pawnSelectionModal.classList.remove('hide-pawnSelection');
-        console.log(roomId, player, from, posToSwap, captured );
         captured.forEach(el => {
             const img = document.createElement('img');
             img.src = el.image_path
@@ -645,7 +728,6 @@ import { calculateTimer } from "/scripts/utils/utils.js"
                 pawnSelectionModal.classList.add('hide-pawnSelection');
                 figureRestoreDiv.innerHTML = '';
                 putfigure(from, el, posToSwap);
-                console.log(posToSwap);
                 socket.emit("swapFigures", ({ roomId, player, from, chosenElement: el, posToSwap }));
                 turn = GLopponent_color;
                 switchTurns();
@@ -655,7 +737,6 @@ import { calculateTimer } from "/scripts/utils/utils.js"
 
         })
     }
-
 
 
     const InitializeSocketEvents = () => {
@@ -672,8 +753,8 @@ import { calculateTimer } from "/scripts/utils/utils.js"
                 current_Timer = document.querySelector('.opponent-time');
                 turn = opponent_color;
             }
-            createChessBoard();
-            alignStart(GLopponent_color, GLmy_color);
+            createChessBoard(color);
+            alignStart(GLmy_color);
             socket.emit('get-table-one-time', {
                 roomId: GLroomId,
                 player: GLmy_color,
@@ -681,6 +762,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             });
             GAME(GLopponent_color, GLmy_color);
             localStorage.setItem("gameReady", "true")
+            console.log(table);
 
         })
         socket.off("timer-update");
@@ -700,7 +782,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         })
         socket.off("get_currentMove");
         socket.on("get_currentMove", ({ move }) => {
-            displayMoves(movesDisplay, move.from, move.to, move.player);
+            displayMoves(movesDisplay, move.from, move.to, move.player, move.check);
         })
         // socket.on("get-allMoves", ({ moves }) => {
 
@@ -710,11 +792,40 @@ import { calculateTimer } from "/scripts/utils/utils.js"
         socket.off("opponentMove");
         socket.on('opponentMove', (data) => {
             const { from, to, currentTurn } = data;
-            console.log("moving opponent");
             makeOpponentMove(from, to);
             turn = currentTurn;
             switchTurns();
 
+        })
+
+        socket.on("receiveMessage", ({ message }) => {
+            showChessAlert(message);
+        })
+
+        socket.on("kingChecked", () => {
+            // now here we need to calculate every single move if its going to
+            // help p[revent the check 
+            //1. iterate over my figures
+            const copyTable = [...table];
+
+            const myFigures = getFiguresByColor(GLmy_color, copyTable);
+            myFigures.forEach(el => {
+                const moves = el.calculateMoves(table);
+                moves.forEach(move => {
+                    if (simulateMoveForCheck(el, move, copyTable)) {
+                        if (!allowedMoves[el.position]) allowedMoves[el.position] = [];
+                        allowedMoves[el.position].push(move);
+                    }
+                })
+            })
+            if (Object.keys(allowedMoves).length === 0) {
+                showChessAlert("CheckMate");
+                socket.emit("sendMessagetoOtherSide", { roomId: GLroomId, message: "CheckMate" });
+            } else {
+                showChessAlert("Check");
+                socket.emit("sendMessagetoOtherSide", { roomId: GLroomId, message: "Check" });
+                check = true;
+            }
         })
 
         socket.on("putFigure", (data) => {
@@ -744,7 +855,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
             else current_Timer = document.querySelector('.opponent-time');
             opponent_name.textContent = enemy.username
             if (enemy.profile_picture) opponent_pic.src = enemy.profile_picture;
-            createChessBoard();
+            createChessBoard(GLmy_color);
             renderFromTable(table);
             GAME(GLopponent_color, GLmy_color);
             // opponent_name.textContent = localStorage.getItem('')
@@ -762,9 +873,7 @@ import { calculateTimer } from "/scripts/utils/utils.js"
     function onSocketReady() {
         InitializeSocketEvents();
         window.removeEventListener('socket-ready', onSocketReady); // auto-cleanup
-        console.log("socket ready")
         if (sessionStorage.getItem("pawnAtEnd") === 'true') {
-            console.log("getting paswAtEnd");
             const data = JSON.parse(sessionStorage.getItem("pawnAtEndData"));
             pawnAtEndsituation(data);
         }
@@ -779,9 +888,8 @@ import { calculateTimer } from "/scripts/utils/utils.js"
 
 
     if (localStorage.getItem("gameHasStarted") === "false" || !localStorage.getItem("gameHasStarted")) {
-        createChessBoard();
-        alignStart("black", "white");
-        console.log(table);
+        createChessBoard("white");
+        alignStart("white");
     }
 
 

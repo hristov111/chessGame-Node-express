@@ -6,11 +6,10 @@ const getActiveGames = async () =>{
     return rows[0].count;
 }
 
-const getGamesForToday = async() => {
-    const rows = await pool.query("SELECT COUNT(id) AS count FROM games WHERE start_time >= NOW() - INTERVAL 1 DAY");
-    return rows[0].count;
+const getGamesForToday = async () => {
+    const result = await pool.query("SELECT COUNT(id) AS count FROM games WHERE start_time >= NOW() - INTERVAL 1 DAY");
+    return result[0];
 }
-
 
 const registerGame = async (data) => {
     const query = `

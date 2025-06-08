@@ -5,6 +5,7 @@ const cors = require('cors');
 const users = require("./routes/users");
 const pages = require("./routes/pages");
 const games = require("./routes/games");
+const friends = require('./routes/friends');
 const session = require('express-session');
 const PORT = process.env.PORT || 5500;
 
@@ -174,15 +175,15 @@ const addCaptured = (roomId, player, object) => {
     }
 }
 
-const checkIfPawnAtEnd = (roomId, socket, player,from, to) => {
+const checkIfPawnAtEnd = (roomId, socket, player, from, to) => {
     const game = chessGameState.get(roomId);
     const tableToCheck = player === 'white' ? game.currentTableWhite : game.currentTableBlack;
-    const captured = player === 'white' ?  game.capturedBlack : game.capturedwhite;
+    const captured = player === 'white' ? game.capturedBlack : game.capturedwhite;
     const toFig = getElementFromTable(tableToCheck, to);
     if (toFig.type === 'pawn' && (to >= 0 && to <= 7)) {
         // pawn is at end 
         console.log("pawn at end");
-        socket.emit("pawnAtEnd", { roomId, player,from, posToSwap: toFig, captured: captured });
+        socket.emit("pawnAtEnd", { roomId, player, from, posToSwap: toFig, captured: captured });
         return true;
     } else {
         return false;
@@ -192,51 +193,30 @@ const checkIfPawnAtEnd = (roomId, socket, player,from, to) => {
 
 const addMovesForDisplayingPanel = (roomId, player, from, to) => {
     const game = chessGameState.get(roomId);
-    if (player === "white") {
-        game.movesWhite.push({ player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) });
-        game.movesBlack.push({ player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) });
-    } else if (player === 'black') {
-        game.movesBlack.push({ player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) });
-        game.movesWhite.push({ player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) });
-    }
+    game.movesWhite.push({ player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) });
+    game.movesBlack.push({ player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) });
+
 }
 
 const addMovestoTable = (roomId, player, from, to, isObjects = false) => {
-    console.log("Add Moves to table:",player,from,to,isObjects);
+    console.log("Add Moves to table:", player, from, to, isObjects);
     const game = chessGameState.get(roomId);
     if (!isObjects) {
-        if (player === 'white') {
-            changeTablePos(game.currentTableWhite, from, to);
-            changeTablePos(game.currentTableBlack, flipIndex(from), flipIndex(to));
-        } else if (player === 'black') {
-            changeTablePos(game.currentTableBlack, from, to);
-            changeTablePos(game.currentTableWhite, flipIndex(from), flipIndex(to));
+        changeTablePos(game.currentTableWhite, from, to);
+        changeTablePos(game.currentTableBlack, from, to);
 
-        }
-    }else {
-        const newTo = {...to, _position:flipIndex(to._position)}
-        console.log(newTo);
-         if (player === 'white') {
-            changeTablePosObject(game.currentTableWhite, from, to);
-            changeTablePosObject(game.currentTableBlack, from, newTo);
-        } else if (player === 'black') {
-            changeTablePosObject(game.currentTableBlack, from, to);
-            changeTablePosObject(game.currentTableWhite, from, newTo);
+    } else {
+        changeTablePosObject(game.currentTableWhite, from, to);
+        changeTablePosObject(game.currentTableBlack, from, to);
 
-        }
     }
 };
 
 const addMovesToDatabase = async (roomId, player, from, to, id) => {
-    if (player === 'white') {
-        await updateMoves
-            (id, `${player.padEnd(6)} ${positionToAlgebraic(from)} ---> ${positionToAlgebraic(to)}`,
-                `${player.padEnd(6)} ${positionToAlgebraic(flipIndex(from))} ---> ${positionToAlgebraic(flipIndex(to))}`)
-    } else if (player === 'black') {
-        await updateMoves
-            (id, `${player.padEnd(6)} ${positionToAlgebraic(flipIndex(from))} ---> ${positionToAlgebraic(flipIndex(to))}`,
-                `${player.padEnd(6)} ${positionToAlgebraic(from)} ---> ${positionToAlgebraic(to)}`)
-    }
+    await updateMoves
+        (id, `${player.padEnd(6)} ${positionToAlgebraic(from)} ---> ${positionToAlgebraic(to)}`,
+            `${player.padEnd(6)} ${positionToAlgebraic(from)} ---> ${positionToAlgebraic(to)}`)
+
 
 }
 
@@ -277,8 +257,12 @@ io.on('connection', async (socket) => {
     await updatePlayerActiveState(userId, true);
 
     // 1. Invite someone to a game \
-    socket.on('send-invite', ({ toSocketId, from }) => {
-        io.to(toSocketId).emit('receive-ivite', { from, fromSocketId: socket.id });
+    socket.on('send-friend-request', ({ userId, fromId }) => {
+        const otherSocket = connectedUsers.get(userId);
+        if(otherSocket){
+            io.to(otherSocket.id).emit('receive-friend-request', { fromId, fromSocketId: socket.id });
+            socket.emit("invite-send",{to:userId});
+        }
     })
 
     // 2. Accept Invite
@@ -365,7 +349,7 @@ io.on('connection', async (socket) => {
             chessGameState.set(roomId, {
                 player1: { id: p1Id, color: 'white' },
                 player2: { id: p2Id, color: 'black' },
-                currentTurn: 'black',
+                currentTurn: '',
                 currentTableWhite: [],
                 currentTableBlack: [],
                 movesWhite: [],
@@ -393,8 +377,8 @@ io.on('connection', async (socket) => {
                 console.log("game not registered");
             }
 
-            p1socket.emit('game-started', { roomId, opponentId: p2Id, color: 'black', opponent_color: "white", timer: true });
-            p2socket.emit('game-started', { roomId, opponentId: p1Id, color: 'white', opponent_color: "black", timer: false });
+            p1socket.emit('game-started', { roomId, opponentId: p2Id, color: 'black', opponent_color: "white" });
+            p2socket.emit('game-started', { roomId, opponentId: p1Id, color: 'white', opponent_color: "black"});
 
             // UPDATE DB
             await updateGameSearchUser(p1Id, false);
@@ -417,7 +401,7 @@ io.on('connection', async (socket) => {
             else if (player === 'black') game.currentTableBlack = table;
         }
     })
-    socket.on('start-game', async ({ roomId, opponentId, color, opponent_color, timer }) => {
+    socket.on('start-game', async ({ roomId, opponentId, color, opponent_color }) => {
         if (!startGameStatus.has(roomId)) {
             startGameStatus.set(roomId, new Set());
         }
@@ -438,6 +422,8 @@ io.on('connection', async (socket) => {
             await updatePlayerPlayingState(socket2.userId, true);
 
             if (socket1 && socket2) {
+                const game =  chessGameState.get(roomId);
+                game.currentTurn = color;
                 console.log('starting game');
                 socket1.emit('game-ready', {
                     roomId,
@@ -483,22 +469,22 @@ io.on('connection', async (socket) => {
         }, 1000)
 
     });
-    socket.on("swapFigures", async ({ roomId, player,from,chosenElement, posToSwap }) => {
+    socket.on("swapFigures", async ({ roomId, player, from, chosenElement, posToSwap }) => {
         // i need to update postoswap with chosen elelment and thats it 
-        console.log(player,chosenElement,posToSwap);
-        addMovestoTable(roomId, player, chosenElement, posToSwap,true);
+        console.log(player, chosenElement, posToSwap);
+        addMovestoTable(roomId, player, chosenElement, posToSwap, true);
         updateTimer(roomId, player);
         const game = chessGameState.get(roomId);
-        const posToSwapFlipped = {...posToSwap,_position:flipIndex(posToSwap._position)};
         // const opponnet_table = player === 'white'?game.currentTableBlack:game.currentTableWhite;
-        socket.to(roomId).emit('putFigure', { from:flipIndex(from),chosenElement,posToSwap:posToSwapFlipped,currentTurn: game.currentTurn });
+        socket.to(roomId).emit('putFigure', { from, chosenElement, posToSwap, currentTurn: game.currentTurn });
     });
 
-    socket.on('onCheck', ({roomId,player,threat}) => {
-        
+    socket.on("sendMessagetoOtherSide", ({ roomId, message }) => {
+        socket.to(roomId).emit("receiveMessage", { message });
     })
 
-    socket.on('move', async ({ roomId, move: { player, from, to }, enemy_fig }) => {
+
+    socket.on('move', async ({ roomId, move: { player, from, to }, enemy_fig, check }) => {
         const game = chessGameState.get(roomId);
         const id = ROOMS.get(roomId);
         // add if captured
@@ -515,9 +501,13 @@ io.on('connection', async (socket) => {
         if (!checkIfPawnAtEnd(roomId, socket, player, Number(from), Number(to))) {
             console.log("figure not at end");
             updateTimer(roomId, player);
-            socket.to(roomId).emit('opponentMove', { from: flipIndex(from), to: flipIndex(to), currentTurn: game.currentTurn });
+            socket.to(roomId).emit('opponentMove', { from: from, to: to, currentTurn: game.currentTurn });
         }
-        socket.to(roomId).emit("get_currentMove", { move: { player, from: positionToAlgebraic(flipIndex(from)), to: positionToAlgebraic(flipIndex(to)) } });
+        if (check) {
+            socket.to(roomId).emit("kingChecked");
+
+        }
+        socket.to(roomId).emit("get_currentMove", { move: { player, from: positionToAlgebraic(from), to: positionToAlgebraic(to),check } });
         socket.emit("get_currentMove", { move: { player, from: positionToAlgebraic(from), to: positionToAlgebraic(to) } });
     })
 
@@ -544,6 +534,7 @@ app.use(express.static(path.join(__dirname, '../client')));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
+app.use("/api/friends",friends);
 app.use('/api/users', users);
 app.use('/api/games', games);
 app.use('/', pages);

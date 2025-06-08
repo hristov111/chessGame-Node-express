@@ -3,18 +3,20 @@ import {
     isRepeatedPasswordValid, setErrorText
 } from "./utils/validation.js";
 
-import { extractAndSet, fetchUserINfo, greetUser, getPlayerById } from "./utils/utils.js";
-import { navigate ,initializeSocket} from "./router.js";
-import { pageAuthentication } from "./utils/utils.js";
+import { extractAndSet, fetchUserINfo, greetUser, getPlayerById, getFriendsByIdFunc } from "./utils/utils.js";
+import { navigate, initializeSocket } from "./router.js";
+import { pageAuthentication ,deleteFriendbyId} from "./utils/utils.js";
 
 
 (async () => {
 
+
+
     const user = await pageAuthentication('profile');
     const actualUser = JSON.parse(localStorage.getItem('guestUser'));
-    if(actualUser)initializeSocket(actualUser.value.id);
+    if (actualUser) initializeSocket(actualUser.value.id);
     // redirect to login
-    if(user === 'nouser'){
+    if (user === 'nouser') {
         navigate('login');
     }
 
@@ -298,5 +300,72 @@ import { pageAuthentication } from "./utils/utils.js";
     deletebtn.addEventListener("click", () => {
         avatarImg.src = "../../../images/line.png";
         avatarInput.value = ""; // clear the input value;
+    })
+
+    // buttons
+    const friendsSectionButt = document.querySelector(".friends");
+    const publicProfileButt = document.querySelector('.public-profile');
+
+    // sections
+    const publicProfileSection = document.querySelector('.profile-section');
+    const friendSection = document.querySelector(".friend-section");
+    
+    friendsSectionButt.addEventListener('click', async () => {
+        friendSection.innerHTML = '';
+        publicProfileSection.classList.add('hidden');
+        friendSection.classList.remove('hidden');
+        friendsSectionButt.classList.add("active");
+        publicProfileButt.classList.remove("active");
+        // fetch all friends;
+        const id = actualUser.value.id;
+        let friendsArray = [];
+        const friendsObject = await getFriendsByIdFunc(id);
+        friendsObject.forEach(element => {
+            friendsArray.push(element.id1 === id?element.id2:element.id1);
+        });
+
+        friendsArray.forEach( async(id) => {
+            const userData = await getPlayerById(id);
+            console.log(userData);
+            const wrapper = await extractAndSet(friendSection, '/pages/partials/popupSelect.html',null,[],true,`data-popup-id="${id}"`);
+            wrapper.style.display = 'block';
+            wrapper.style.width = "100%";
+            wrapper.style.height = 'auto';
+            const header = wrapper.querySelector('.player-popup');
+            header.style.position = 'static';
+            header.style.width = '400px'
+            header.dataset.userid = id;
+            let img = wrapper.querySelector('.popup-avatar');
+            const username = wrapper.querySelector('.popup-title');
+            const name = wrapper.querySelector('.popup-name');
+            const rankINT = wrapper.querySelector(".popup-meta");
+            const rankText = wrapper.querySelector('.popup-rank');
+            const removeFriendbutton=wrapper.querySelector('.pop-upAddFiend');
+            removeFriendbutton.textContent= "Remove friend" 
+            username.textContent = userData.username;
+            if(userData.name)name.textContent = userData.name;
+            else name.textContent = '';
+            if(userData.profile_picture)img.src = userData.profile_picture;
+            else img.src = "/images/profile.png";
+            rankINT.textContent = userData.rank;
+            rankText.textContent = userData.text_rank;
+            removeFriendbutton.addEventListener('click',async () => {
+                const res = await deleteFriendbyId(actualUser.value.id,userData.id);
+                if(res){
+                    header.classList.add("fade-out");
+                    setTimeout(() => {
+                        friendSection.removeChild(wrapper);
+                    },3000)
+                }
+            })
+
+        })
+    })
+
+    publicProfileButt.addEventListener('click', () => {
+        publicProfileSection.classList.remove('hidden');
+        friendSection.classList.add('hidden');
+        friendsSectionButt.classList.remove("active");
+        publicProfileButt.classList.add("active");
     })
 })()

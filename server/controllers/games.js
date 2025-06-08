@@ -14,9 +14,11 @@ const getActiveGamesFunc = async (req,res) => {
 
 const getGamesForTodayFunc = async (req,res) => {
     try {
-        const todayGams = await getGamesForToday();
-        console.log(todayGams);
-        res.status(200).json({todayGams});
+        console.log("Getting games");
+        const todayGames = await getGamesForToday();
+        console.log("Getting games for today");
+        console.log(todayGames);
+        res.status(200).json({todayGames});
 
     }catch(error){
         res.status(500).json({error: "Internal error"});

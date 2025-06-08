@@ -497,3 +497,26 @@ body {
 .hide-pawnSelection{
     display: none;
 }
+
+/* ALERT MODAL */
+
+
+.modal{
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    background: rgba(0, 0, 0,0.85);
+    color: white;
+    padding: 20px 40px;
+    border-radius: 10px;
+    font-size: 24px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.modal.show{
+    opacity: 1;
+}

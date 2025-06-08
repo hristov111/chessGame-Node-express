@@ -16,6 +16,10 @@ import { findGame, socket, initializeSocket, resign } from "./router.js";
         } */
 (async () => {
 
+
+    // extract and set popup
+    const popUp = document.querySelector('.player-popup ');
+    await extractAndSet(popUp, '/pages/partials/popupSelect.html');
     console.log('game-ready')
 
     const user = await pageAuthentication();
@@ -176,6 +180,7 @@ import { findGame, socket, initializeSocket, resign } from "./router.js";
                     popup.classList.remove('hidden');
                     console.log(element.id);
                     const player = await getPlayerById(element.id);
+                    popup.dataset.playerId = player.id;
                     console.log(player);
 
                     const img = document.querySelector('.popup-header');
@@ -228,6 +233,13 @@ import { findGame, socket, initializeSocket, resign } from "./router.js";
     const popUpAddFriend = document.querySelector(".pop-upAddFiend");
     const popUpChallange = document.querySelector(".challange");
 
+
+    popUpAddFriend.addEventListener('click', async () => {
+        const playerId = Number(popup.dataset.playerId);
+
+
+    })
+
     popUpAddFriend.addEventListener('click', () => {
         const user = JSON.parse(localStorage.getItem("guestUser"));
         if (user.value.isGuest) return;
@@ -254,7 +266,6 @@ import { findGame, socket, initializeSocket, resign } from "./router.js";
     const endGame = () => {
         // trigger endGame Modal
         sessionStorage.setItem("gameHasStarted", "false");
-        window.gameHasStarted = false;
         newGameButton.disabled = false;
         show_playersButt.disabled = false;
         startGameTab.style.display = 'block';
@@ -306,7 +317,7 @@ import { findGame, socket, initializeSocket, resign } from "./router.js";
     const opponent_pic = document.querySelector('.person img');
     if (socket) {
         socket.off('game-started');
-        socket.on('game-started', async ({ roomId, opponentId, color, opponent_color, timer }) => {
+        socket.on('game-started', async ({ roomId, opponentId, color, opponent_color }) => {
             // need to get information about opponent first and store him in localstorage
             searchModal.classList.add('hide');
             const opponent = await getPlayerById(opponentId);
@@ -317,10 +328,16 @@ import { findGame, socket, initializeSocket, resign } from "./router.js";
             // display the board
             in_game = true;
             console.log("game-started");
-            socket.emit('start-game', { roomId, opponentId, color, opponent_color, timer });
+            socket.emit('start-game', { roomId, opponentId, color, opponent_color });
             sessionStorage.setItem("gameHasStarted", "true");
             window.dispatchEvent(new Event('game-on'));
             // need to deisable buttons and so on
+        });
+
+        socket.off("receive-friend-request");
+        socket.on('receive-friend-request', async ({ fromId, fromSocketId }) => {
+            const userFrom = await getPlayerById(fromId);
+            // create
         });
 
         socket.on('game-ended', ({ reason }) => {

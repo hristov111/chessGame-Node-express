@@ -34,18 +34,18 @@ const closeModalOverlay = (modalOverlay) => {
     }
 }
 
-const updatePlayerActiveState = async (username,is_online) => {
-    console.log(username,is_online);
+const updatePlayerActiveState = async (username, is_online) => {
+    console.log(username, is_online);
     try {
         const res = await fetch(`/api/users/updateplayerActiveState?name=${username}&status=${is_online}`, {
-            method:"PATCH",
-            credentials:"include",
+            method: "PATCH",
+            credentials: "include",
         })
 
         console.log(res);
         const data = await res.json();
         return data;
-    }catch(error){
+    } catch (error) {
         console.log("Server error: ", error);
     }
 }
@@ -53,11 +53,45 @@ const updatePlayerActiveState = async (username,is_online) => {
 
 const logOutUser = async () => {
     const res = await fetch('/api/users/logout', {
-        method:"POST",
-        credentials:"include",
+        method: "POST",
+        credentials: "include",
     })
-    if(res.ok){
+    if (res.ok) {
         await navigate('login');
+    }
+}
+
+
+const getFriendsByIdFunc = async (id) => {
+    try {
+        const res = await fetch(`/api/friends/getFriendsById/${id}`, {
+            method: "GET",
+            credentials: "include"
+        });
+
+        const data = await res.json();
+        console.log(data);
+        if(res.ok){
+            return data;
+        }
+    } catch (error) {
+        console.log("error:", error);
+    }
+}
+
+const deleteFriendbyId = async(myId,friendId) => {
+    try {
+        const res = await fetch(`/api/friends/deleteFriendById?myId=${myId}&friendId=${friendId}`,{
+            method: "DELETE",
+            credentials:"include",
+        });
+
+        const data = await res.json();
+        if(res.ok){
+            return data;
+        }
+    }catch(error){
+        console.log("error:", error);
     }
 }
 
@@ -74,7 +108,7 @@ const pageAuthentication = async (sensitivePage) => {
     const userInLocalStorage = JSON.parse(localStorage.getItem("guestUser"));
     // session has expired now get to log in sign up or play as guest   
     if (!res?.session) {
-        if(sensitivePage === 'profile') return 'nouser';
+        if (sensitivePage === 'profile') return 'nouser';
         openModalOverlay("sessionCheck", modalOverlay);
     } else {
         const sessionUser = {
@@ -97,11 +131,27 @@ const pageAuthentication = async (sensitivePage) => {
 
 
 // pass with innerHTML
-const extractAndSet = async (html, path, callback = null, scripts = []) => {
+const extractAndSet = async (html, path, callback = null, scripts = [],append =false,wrapperAttr ='') => {
     try {
         const res = await fetch(path);
         const data = await res.text();
-        html.innerHTML = data;
+
+        const wrapper= document.createElement("div");
+        wrapper.innerHTML = data;
+
+        if(wrapperAttr){
+            const [atr,val] = wrapperAttr.split("=");
+            wrapper.setAttribute(atr,val.replace(/"/g,""));
+        }   
+
+
+        if(append) html.appendChild(wrapper);
+        else {
+            html.innerHTML = '';
+            html.appendChild(wrapper);
+        }
+         
+
 
         for (const script of scripts) {
             const newScript = document.createElement("script");
@@ -113,6 +163,7 @@ const extractAndSet = async (html, path, callback = null, scripts = []) => {
         if (typeof callback === 'function') {
             callback();
         }
+        return wrapper;
     } catch (err) {
         console.error(`❌ Error in extractAndSet for ${path}:`, err);
     }
@@ -309,15 +360,13 @@ const getGamesForToday = async () => {
     try {
         const res = await fetch('api/games/getGamesForToday', {
             method: "GET",
-            headers: { "Content-Type": "application/json" },
             credentials: "include"
 
         });
 
         const data = await res.json();
         if (res.status == 200) {
-            console.log(data);
-            return data;
+            return data.todayGames[0].count;
         } else {
             console.log("Couldnt get games for today");
         }
@@ -425,17 +474,18 @@ const refreshExpiry = (key, ttl) => {
 }
 
 
-const calculateTimer = (duration,display) => {
+const calculateTimer = (duration, display) => {
     var timer = duration, minutes, seconds;
-        minutes = parseInt(timer / 60, 10);
-        seconds = parseInt(timer % 60, 10);
-        minutes = minutes < 10 ? "0" + minutes : minutes;
-        seconds = seconds < 10 ? "0" + seconds : seconds;
+    minutes = parseInt(timer / 60, 10);
+    seconds = parseInt(timer % 60, 10);
+    minutes = minutes < 10 ? "0" + minutes : minutes;
+    seconds = seconds < 10 ? "0" + seconds : seconds;
 
-        display.textContent = minutes + ":" + seconds;
+    display.textContent = minutes + ":" + seconds;
 }
 
-export {logOutUser,updatePlayerActiveState,
+export {
+    logOutUser, updatePlayerActiveState,getFriendsByIdFunc,deleteFriendbyId,
     extractAndSet, calculateTimer, getGameSearchingUsers, getTitleByELO, updateUserGameSearchState, refreshExpiry, setwithExpiry, getwithExpiry, getPlayerById, fetchUserINfo, greetUser, createGuestUser, fetchAllActivePlayers,
     checkIfUsernameExists, checkSession, registerUser, setProperButtons, generateGuestName, openModalOverlay, pageAuthentication, closeModalOverlay, getGamesForToday
 };

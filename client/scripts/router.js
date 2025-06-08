@@ -3,7 +3,7 @@ const pageConfig = {
         src: "/pages/mainPaths",
         navbar: "main-navbar",
         scripts: ["/scripts/profile.js"],
-        styles: ["/styles/profile.css", "/styles/partials/main-nav.css"]
+        styles: ["/styles/profile.css", "/styles/partials/main-nav.css","/styles/popupprofile.css"]
     },
     main: {
         src: "/pages/mainPaths",
@@ -179,16 +179,7 @@ function initializeSocket(userId) {
         socket.on('connect', () => {
             console.log("Socket connected:", socket.id);
         });
-        socket.off("receive-invite");
-        socket.on('receive-invite', ({ from, fromSocketId }) => {
-            const accept = confirm(`Player ${from} invited you to a game. Accept?`);
-            if (accept) {
-                const roomId = `${fromSocketId}_${socket.id}`;
-                socket.emit('accept-invite', { toSocketId: fromSocketId, roomId });
-            } else {
-                socket.emit('decline-invite', { toSocketId: fromSocketId });
-            }
-        });
+
         socket.off("invite-accepted");
         socket.on('invite-accepted', ({ roomId }) => {
             console.log(`Joined room ${roomId}`);
@@ -211,9 +202,6 @@ function initializeSocket(userId) {
 // Game actions
 
 
-function signalForCheck(roomId,player,threat) {
-    socket.emit('onCheck', {roomId,player,threat});
-}
 function findGame(userId) {
     socket.emit('find-game', { userId });
 }
@@ -226,11 +214,11 @@ function sendInvite(opponentId) {
     socket.emit('send-invite', { opponentId, from: socket.id });
 }
 
-function sendMove(roomId, player, from, to,enemy_fig,parent_fig) {
+function sendMove(roomId, player, from, to,enemy_fig,parent_fig,check) {
     console.log(roomId, player, from, to);
     socket.emit('move', {
         roomId,
-        move: { player, from, to }, enemy_fig
+        move: { player, from, to }, enemy_fig,check
     });
 }
 
@@ -254,4 +242,4 @@ function resign(roomId) {
 
 })();
 
-export { navigate, loadPage,stopGame, signalForCheck,navbar, findGame, socket, initializeSocket, sendMove,resign };
+export { navigate, loadPage,stopGame,navbar, findGame, socket, initializeSocket, sendMove,resign };
